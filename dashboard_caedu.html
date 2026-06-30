@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Caedu · Reclame Aqui · Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+<script>
+  if (typeof msal === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.35.0/msal-browser.min.js"><\/script>');
+  }
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
   :root {
@@ -1331,12 +1336,21 @@ function renderProdPage() {
 
 // ─── LOGIN MICROSOFT (MSAL.js) ──────────────────────────────────────────────
 function initMsal() {
+  if (typeof msal === 'undefined') {
+    setTimeout(initMsal, 300);
+    return;
+  }
   msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
 }
 
 async function loginMicrosoft() {
   const statusEl = document.getElementById('login-status');
   statusEl.className = 'login-status';
+  if (typeof msal === 'undefined' || !msalInstance) {
+    statusEl.className = 'login-status error';
+    statusEl.textContent = 'Biblioteca de login ainda carregando, aguarde 2s e tente de novo.';
+    return;
+  }
   statusEl.textContent = 'Abrindo login da Microsoft...';
   try {
     const result = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES, prompt: 'select_account' });
