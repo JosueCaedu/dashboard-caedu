@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caedu · Reclame Aqui · Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+<script>
+  if (typeof msal === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.35.0/msal-browser.min.js"><\/script>');
+  }
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0D1117;
+    --surface: #161B22;
+    --surface2: #1E2530;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --teal: #00C4A0;
+    --teal-dim: rgba(0,196,160,0.12);
+    --amber: #F59E0B;
+    --amber-dim: rgba(245,158,11,0.12);
+    --red: #EF4444;
+    --red-dim: rgba(239,68,68,0.12);
+    --blue: #3B82F6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --purple: #A855F7;
+    --purple-dim: rgba(168,85,247,0.12);
+    --text: #E6EDF3;
+    --text-muted: #7D8590;
+    --text-dim: #4A5568;
+    --radius: 10px;
+    --sidebar: 200px;
+    --live-color: #00C4A0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: var(--sidebar);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .sidebar-logo {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .brand {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+  .sidebar-logo .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,196,160,0.1);
+    border: 1px solid rgba(0,196,160,0.25);
+    border-radius: 20px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--teal);
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .nav-section {
+    padding: 16px 12px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    margin: 1px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .nav-item i { font-size: 17px; flex-shrink: 0; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: var(--teal-dim);
+    color: var(--teal);
+    border-color: rgba(0,196,160,0.2);
+  }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 8px;
+    border-top: 1px solid var(--border);
+  }
+  .sync-info {
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 0 6px;
+  }
+  .sync-info span { color: var(--text-muted); }
+
+  /* MAIN */
+  #main {
+    margin-left: var(--sidebar);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .topbar {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .topbar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--surface2); color: var(--text); }
+  .btn-primary {
+    background: var(--teal);
+    color: #0D1117;
+    border-color: var(--teal);
+    font-weight: 600;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn i { font-size: 15px; }
+
+  .content { padding: 28px 32px; flex: 1; max-width: 100%; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 1400px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi-card.teal::before { background: var(--teal); }
+  .kpi-card.amber::before { background: var(--amber); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-card.blue::before { background: var(--blue); }
+  .kpi-card.purple::before { background: var(--purple); }
+  .kpi-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 36px; font-weight: 700; color: var(--text); line-height: 1.1; margin: 8px 0 6px; }
+  .kpi-value.teal { color: var(--teal); }
+  .kpi-value.amber { color: var(--amber); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.blue { color: var(--blue); }
+  .kpi-delta { font-size: 11px; color: var(--text-dim); }
+  .kpi-delta.up { color: #4ADE80; }
+  .kpi-delta.down { color: var(--red); }
+  .kpi-icon {
+    position: absolute;
+    top: 14px; right: 14px;
+    font-size: 20px;
+    opacity: 0.2;
+  }
+
+  /* CHARTS GRID */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .chart-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .data-table td:first-child { color: var(--text); font-weight: 500; }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-finalizado { background: rgba(0,196,160,0.12); color: var(--teal); }
+  .badge-pendente { background: rgba(245,158,11,0.12); color: var(--amber); }
+  .badge-desativado { background: rgba(239,68,68,0.12); color: var(--red); }
+  .badge-moderado { background: rgba(168,85,247,0.12); color: var(--purple); }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap { width: 100%; background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+  /* ANALYST CARD */
+  .analyst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .analyst-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .analyst-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .analyst-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--teal-dim);
+    border: 1px solid rgba(0,196,160,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--teal);
+    flex-shrink: 0;
+  }
+  .analyst-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .analyst-role { font-size: 11px; color: var(--text-muted); }
+  .analyst-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .analyst-stat-label { font-size: 10px; color: var(--text-dim); margin-bottom: 2px; }
+  .analyst-stat-value { font-size: 16px; font-weight: 700; color: var(--text); }
+  .analyst-stat-value.green { color: var(--teal); }
+  .analyst-stat-value.amber { color: var(--amber); }
+  .analyst-stat-value.red { color: var(--red); }
+
+  /* CONFIG PAGE */
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 560px;
+  }
+  .config-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .config-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--teal); }
+  .form-hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .config-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-top: 16px;
+  }
+  .config-status.ok { background: var(--teal-dim); border: 1px solid rgba(0,196,160,0.2); color: var(--teal); }
+  .config-status.error { background: var(--red-dim); border: 1px solid rgba(239,68,68,0.2); color: var(--red); }
+  .config-status.idle { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* FILTER BAR */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .filter-select {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-select:focus { border-color: var(--teal); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+  }
+  .empty-state i { font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.3; }
+  .empty-state p { font-size: 13px; }
+
+  /* TOOLTIP */
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* SECTION HEADER */
+  .section-header { margin-bottom: 16px; }
+  .section-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .section-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* LOGIN OVERLAY */
+  #login-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+  .login-logo { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .login-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
+  .ms-login-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%;
+    background: #fff;
+    color: #1b1b1b;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .ms-login-btn:hover { opacity: 0.9; }
+  .ms-login-btn img { width: 18px; height: 18px; }
+  .login-status { margin-top: 16px; font-size: 11px; color: var(--text-dim); min-height: 14px; }
+  .login-status.error { color: var(--red); }
+  .login-skip { margin-top: 18px; font-size: 11px; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+  .login-skip:hover { color: var(--text-muted); }
+  #app-wrapper { display: none; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">Caedu · RA</div>
+    <div class="login-sub">Painel de Operações — acesso restrito</div>
+    <button class="ms-login-btn" onclick="loginMicrosoft()">
+      <img src="https://img.icons8.com/color/48/microsoft.png" alt="MS" />
+      Entrar com Microsoft
+    </button>
+    <div class="login-status" id="login-status"></div>
+    <div class="login-skip" onclick="skipLogin()">Continuar com dados demo (sem login)</div>
+  </div>
+</div>
+
+<div id="app-wrapper">
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">Caedu · RA</div>
+    <div class="sub">Painel de Operações</div>
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      AO VIVO
+    </div>
+  </div>
+
+  <div class="nav-section">Monitoramento</div>
+  <div class="nav-item active" onclick="navigate('visao-geral')">
+    <i class="ti ti-layout-dashboard"></i> Visão Geral
+  </div>
+  <div class="nav-item" onclick="navigate('por-area')">
+    <i class="ti ti-building-store"></i> Por Área
+  </div>
+  <div class="nav-item" onclick="navigate('por-tipo')">
+    <i class="ti ti-tag"></i> Por Tipo
+  </div>
+
+  <div class="nav-section">Equipe</div>
+  <div class="nav-item" onclick="navigate('produtividade')">
+    <i class="ti ti-users"></i> Produtividade
+  </div>
+
+  <div class="nav-section">Sistema</div>
+  <div class="nav-item" onclick="navigate('configuracoes')">
+    <i class="ti ti-settings"></i> Configurações
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="sync-info">
+      Última sync<br>
+      <span id="last-sync">—</span>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div id="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">Visão Geral</div>
+      <div class="topbar-sub" id="page-sub">Todos os dados unificados da operação</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="refreshData()">
+        <i class="ti ti-refresh"></i> Atualizar
+      </button>
+      <button class="btn btn-primary" onclick="navigate('configuracoes')">
+        <i class="ti ti-cloud"></i> SharePoint
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- PAGE: VISÃO GERAL -->
+    <div class="page active" id="page-visao-geral">
+      <div class="kpi-grid">
+        <div class="kpi-card teal">
+          <div class="kpi-label">Total de Casos</div>
+          <div class="kpi-value" id="kpi-total">—</div>
+          <div class="kpi-delta" id="kpi-total-delta">carregando...</div>
+          <i class="ti ti-inbox kpi-icon" style="color:var(--teal)"></i>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Pendentes</div>
+          <div class="kpi-value amber" id="kpi-pendentes">—</div>
+          <div class="kpi-delta" id="kpi-pend-delta">—</div>
+          <i class="ti ti-clock kpi-icon" style="color:var(--amber)"></i>
+        </div>
+        <div class="kpi-card teal">
+          <div class="kpi-label">Finalizados</div>
+          <div class="kpi-value teal" id="kpi-finalizados">—</div>
+          <div class="kpi-delta" id="kpi-fin-delta">—</div>
+          <i class="ti ti-circle-check kpi-icon" style="color:var(--teal)"></i>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Desativados</div>
+          <div class="kpi-value red" id="kpi-desativados">—</div>
+          <div class="kpi-delta" id="kpi-des-delta">—</div>
+          <i class="ti ti-ban kpi-icon" style="color:var(--red)"></i>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">Moderados</div>
+          <div class="kpi-value" style="color:var(--purple)" id="kpi-moderados">—</div>
+          <div class="kpi-delta" id="kpi-mod-delta">—</div>
+          <i class="ti ti-eye kpi-icon" style="color:var(--purple)"></i>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Taxa de Resolução</div>
+          <div class="kpi-value blue" id="kpi-taxa">—</div>
+          <div class="kpi-delta" id="kpi-taxa-delta">finalizado / total</div>
+          <i class="ti ti-chart-pie kpi-icon" style="color:var(--blue)"></i>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card full">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Evolução Diária de Reclamações</div>
+              <div class="chart-sub">Novos casos registrados por dia</div>
+            </div>
+            <select class="filter-select" id="filter-days" onchange="updateCharts()">
+              <option value="30">Últimos 30 dias</option>
+              <option value="15">Últimos 15 dias</option>
+              <option value="7">Últimos 7 dias</option>
+            </select>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#00C4A0"></span>Novos casos</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F59E0B"></span>Pendentes acumulados</span>
+          </div>
+          <div class="chart-wrap" style="height:320px">
+            <canvas id="chart-linha" role="img" aria-label="Evolução diária de reclamações"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Distribuição de Status</div>
+              <div class="chart-sub">Proporção atual dos casos</div>
+            </div>
+          </div>
+          <div class="chart-legend" id="legend-donut"></div>
+          <div class="chart-wrap" style="height:380px">
+            <canvas id="chart-donut" role="img" aria-label="Distribuição de status dos casos"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Casos por Área</div>
+              <div class="chart-sub">Volume de reclamações por setor</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:320px">
+            <canvas id="chart-barra-area" role="img" aria-label="Casos por área"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Tipos de Problema</div>
+              <div class="chart-sub">Ranking dos principais motivos</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:320px">
+            <canvas id="chart-barra-tipo" role="img" aria-label="Tipos de problema"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card full">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Tempo Médio de Resolução por Área</div>
+              <div class="chart-sub">Dias entre data da reclamação e data de finalização</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:280px">
+            <canvas id="chart-tempo" role="img" aria-label="Tempo médio de resolução por área"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: POR ÁREA -->
+    <div class="page" id="page-por-area">
+      <div class="filter-bar">
+        <span class="filter-label">Filtrar área:</span>
+        <select class="filter-select" id="filter-area" onchange="renderAreaPage()">
+          <option value="todas">Todas as áreas</option>
+        </select>
+        <select class="filter-select" id="filter-area-status" onchange="renderAreaPage()">
+          <option value="todos">Todos os status</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Finalizado">Finalizado</option>
+          <option value="Desativado">Desativado</option>
+          <option value="Moderado">Moderado</option>
+        </select>
+      </div>
+
+      <div class="charts-grid" style="margin-bottom:20px">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Volume por Área</div>
+          </div>
+          <div class="chart-wrap" style="height:340px">
+            <canvas id="chart-area-barra" role="img" aria-label="Volume por área"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Status por Área (empilhado)</div>
+          </div>
+          <div class="chart-wrap" style="height:340px">
+            <canvas id="chart-area-stack" role="img" aria-label="Status empilhado por área"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Detalhamento por Área</div>
+          <div class="chart-sub">Casos filtrados</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Área</th>
+                <th>Total</th>
+                <th>Finalizado</th>
+                <th>Pendente</th>
+                <th>Desativado</th>
+                <th>Moderado</th>
+                <th>Resolução</th>
+              </tr>
+            </thead>
+            <tbody id="table-area-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: POR TIPO -->
+    <div class="page" id="page-por-tipo">
+      <div class="charts-grid" style="margin-bottom:20px">
+        <div class="chart-card full">
+          <div class="chart-header">
+            <div class="chart-title">Volume por Tipo de Problema</div>
+            <div class="chart-sub">Todos os tipos registrados</div>
+          </div>
+          <div class="chart-wrap" id="chart-tipo-wrap" style="height:380px">
+            <canvas id="chart-tipo-barra" role="img" aria-label="Volume por tipo de problema"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Top 5 Tipos</div>
+            <div class="chart-sub">Polar area</div>
+          </div>
+          <div class="chart-wrap" style="height:320px">
+            <canvas id="chart-tipo-polar" role="img" aria-label="Top 5 tipos polar"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Status por Tipo</div>
+          </div>
+          <div class="chart-wrap" style="height:320px">
+            <canvas id="chart-tipo-stack" role="img" aria-label="Status por tipo"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: PRODUTIVIDADE -->
+    <div class="page" id="page-produtividade">
+      <div class="filter-bar">
+        <span class="filter-label">Ordenar por:</span>
+        <select class="filter-select" id="filter-sort" onchange="renderProdPage()">
+          <option value="total">Total de casos</option>
+          <option value="finalizados">Finalizados</option>
+          <option value="pendentes">Pendentes</option>
+          <option value="taxa">Taxa de resolução</option>
+        </select>
+      </div>
+
+      <div class="analyst-grid" id="analyst-cards"></div>
+
+      <div style="margin-top:24px">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">Comparativo de Analistas</div>
+            <div class="chart-sub">Pendentes vs Finalizados por analista</div>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#00C4A0"></span>Finalizado</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F59E0B"></span>Pendente</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#EF4444"></span>Desativado</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#A855F7"></span>Moderado</span>
+          </div>
+          <div class="chart-wrap" id="chart-analista-wrap" style="height:320px">
+            <canvas id="chart-analistas" role="img" aria-label="Comparativo de analistas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: CONFIGURAÇÕES -->
+    <div class="page" id="page-configuracoes">
+      <div class="config-card">
+        <div class="config-title">Conexão com SharePoint / OneDrive</div>
+        <div class="config-sub">Configure os dados de acesso para buscar a planilha dos analistas em tempo real.</div>
+
+        <div class="form-group">
+          <label class="form-label">Site ID do SharePoint</label>
+          <input class="form-input" id="cfg-site-id" type="text" placeholder="Ex: contoso.sharepoint.com,abc123..." />
+          <div class="form-hint">Encontrado nas configurações do site no SharePoint</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Drive ID</label>
+          <input class="form-input" id="cfg-drive-id" type="text" placeholder="Ex: b!AbCdEf..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID do Arquivo Excel</label>
+          <input class="form-input" id="cfg-file-id" type="text" placeholder="Ex: 01ABCDEF..." />
+          <div class="form-hint">ID do arquivo Caedu_RELACIONAMENTO.xlsx</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome da Aba (Sheet)</label>
+          <input class="form-input" id="cfg-sheet" type="text" placeholder="Ex: Plan1, Sheet1..." value="Sheet1" />
+          <div class="form-hint">Confira o nome exato da aba no Excel (geralmente "Plan1" em arquivos pt-BR ou "Sheet1")</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Intervalo de Atualização</label>
+          <select class="form-input" id="cfg-interval">
+            <option value="60000">1 minuto</option>
+            <option value="30000">30 segundos</option>
+            <option value="300000">5 minutos</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="saveConfig()">
+            <i class="ti ti-device-floppy"></i> Salvar e Conectar
+          </button>
+          <button class="btn" onclick="testConnection()">
+            <i class="ti ti-plug"></i> Testar Conexão
+          </button>
+          <button class="btn" onclick="loadDemoData()">
+            <i class="ti ti-database"></i> Carregar Dados Demo
+          </button>
+        </div>
+
+        <div class="config-status idle" id="cfg-status">
+          <i class="ti ti-info-circle"></i>
+          <span id="cfg-status-text">Aguardando configuração.</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="config-card">
+          <div class="config-title">Mapeamento de Colunas</div>
+          <div class="config-sub">Informe as letras das colunas da sua planilha.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+              <label class="form-label">Data da Reclamação</label>
+              <input class="form-input" id="col-data" type="text" placeholder="Ex: A" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Área do Problema</label>
+              <input class="form-input" id="col-area" type="text" placeholder="Ex: B" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo do Problema</label>
+              <input class="form-input" id="col-tipo" type="text" placeholder="Ex: C" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <input class="form-input" id="col-status" type="text" placeholder="Ex: D" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Analista Responsável</label>
+              <input class="form-input" id="col-analista" type="text" placeholder="Ex: E" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Data de Finalização</label>
+              <input class="form-input" id="col-fin" type="text" placeholder="Ex: F" />
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveColMapping()" style="margin-top:8px">
+            <i class="ti ti-check"></i> Salvar Mapeamento
+          </button>
+        </div>
+      </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+// ─── CONFIG GOOGLE SHEETS ───────────────────────────────────────────────────
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtyrKHnanrE2k0kA6h-PZW466RzSjJgPyOicAfyxxJ2YQBpJCzTz9DSZakp65NSIyESmJRKWGjdbI-/pub?output=csv';
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let appData = [];
+let charts = {};
+let refreshTimer = null;
+let config = {
+  interval: 60000,
+  cols: { data: 0, area: 1, tipo: 2, status: 3, analista: 4, dataFin: 5 }
+};
+
+const STATUS_COLORS = {
+  'Finalizado': '#00C4A0',
+  'Pendente':   '#F59E0B',
+  'Desativado': '#EF4444',
+  'Moderado':   '#A855F7'
+};
+
+// ─── NAVIGATION ────────────────────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('page-' + page).classList.add('active');
+
+  const titles = {
+    'visao-geral':   ['Visão Geral', 'Todos os dados unificados da operação'],
+    'por-area':      ['Por Área', 'Análise de reclamações por setor'],
+    'por-tipo':      ['Por Tipo', 'Análise por tipo de problema'],
+    'produtividade': ['Produtividade', 'Desempenho individual dos analistas'],
+    'configuracoes': ['Configurações', 'Conexão com SharePoint e mapeamento de colunas']
+  };
+  const [title, sub] = titles[page] || ['', ''];
+  document.getElementById('page-title').textContent = title;
+  document.getElementById('page-sub').textContent = sub;
+
+  if (page === 'por-area') renderAreaPage();
+  if (page === 'produtividade') renderProdPage();
+  if (page === 'por-tipo') renderTipoPage();
+}
+
+// ─── DATA PROCESSING ───────────────────────────────────────────────────────
+function normalizeStatus(s) {
+  if (!s) return 'Pendente';
+  s = s.trim().toLowerCase();
+  if (s.includes('final') || s === 'resolvido') return 'Finalizado';
+  if (s.includes('desati') || s === 'cancelado') return 'Desativado';
+  if (s.includes('moder')) return 'Moderado';
+  return 'Pendente';
+}
+
+function parseDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const s = String(v).trim();
+  if (!isNaN(Number(s))) {
+    const d = new Date((Number(s) - 25569) * 86400000);
+    return isNaN(d) ? null : d;
+  }
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function processRawRows(rows) {
+  const c = config.cols;
+  return rows.filter(r => r && r.length > c.status).map(r => ({
+    dataReclamacao: parseDate(r[c.data]),
+    area: String(r[c.area] || 'Sem Área').trim(),
+    tipo: String(r[c.tipo] || 'Sem Tipo').trim(),
+    status: normalizeStatus(r[c.status]),
+    analista: String(r[c.analista] || 'Sem Analista').trim(),
+    dataFinalizacao: parseDate(r[c.dataFin])
+  })).filter(r => r.area !== '' && r.status !== '');
+}
+
+function groupBy(arr, key) {
+  return arr.reduce((acc, item) => {
+    const k = item[key];
+    acc[k] = acc[k] || [];
+    acc[k].push(item);
+    return acc;
+  }, {});
+}
+
+// ─── DEMO DATA ──────────────────────────────────────────────────────────────
+function loadDemoData() {
+  const areas = ['Logística', 'Financeiro', 'Produto', 'Atendimento', 'E-commerce'];
+  const tipos = ['Atraso na entrega', 'Cobrança indevida', 'Produto com defeito', 'Mau atendimento', 'Cancelamento', 'Troca/Devolução', 'Site fora', 'Nota fiscal'];
+  const analistas = ['Ana Paula', 'Carlos Eduardo', 'Fernanda Lima', 'Rodrigo Souza', 'Juliana Costa'];
+  const statuses = ['Finalizado', 'Pendente', 'Desativado', 'Moderado'];
+  const weights = [0.45, 0.35, 0.12, 0.08];
+
+  const rows = [];
+  const now = new Date();
+  for (let i = 0; i < 320; i++) {
+    const daysAgo = Math.floor(Math.random() * 45);
+    const dataRec = new Date(now - daysAgo * 86400000);
+    const rnd = Math.random();
+    let cum = 0, statusIdx = 0;
+    for (let j = 0; j < weights.length; j++) { cum += weights[j]; if (rnd < cum) { statusIdx = j; break; } }
+    const status = statuses[statusIdx];
+    const dataFin = status === 'Finalizado' ? new Date(dataRec.getTime() + Math.random() * 10 * 86400000) : null;
+    rows.push([
+      dataRec,
+      areas[Math.floor(Math.random() * areas.length)],
+      tipos[Math.floor(Math.random() * tipos.length)],
+      status,
+      analistas[Math.floor(Math.random() * analistas.length)],
+      dataFin
+    ]);
+  }
+
+  config.cols = { data: 0, area: 1, tipo: 2, status: 3, analista: 4, dataFin: 5 };
+  appData = processRawRows(rows);
+  populateAreaFilter();
+  updateKPIs();
+  updateCharts();
+  updateSyncTime();
+
+  const s = document.getElementById('cfg-status');
+  s.className = 'config-status ok';
+  document.getElementById('cfg-status-text').textContent = '320 registros demo carregados com sucesso.';
+
+  navigate.call(document.querySelector('.nav-item'), 'visao-geral');
+  document.querySelectorAll('.nav-item').forEach((el, i) => { if (i === 0) el.classList.add('active'); else el.classList.remove('active'); });
+}
+
+// ─── KPIs ───────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const total = appData.length;
+  const byStatus = groupBy(appData, 'status');
+  const fin = (byStatus['Finalizado'] || []).length;
+  const pend = (byStatus['Pendente'] || []).length;
+  const des = (byStatus['Desativado'] || []).length;
+  const mod = (byStatus['Moderado'] || []).length;
+  const taxa = total > 0 ? Math.round((fin / total) * 100) : 0;
+
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-finalizados').textContent = fin;
+  document.getElementById('kpi-pendentes').textContent = pend;
+  document.getElementById('kpi-desativados').textContent = des;
+  document.getElementById('kpi-moderados').textContent = mod;
+  document.getElementById('kpi-taxa').textContent = taxa + '%';
+  document.getElementById('kpi-pend-delta').textContent = Math.round((pend/total)*100) + '% do total';
+  document.getElementById('kpi-fin-delta').textContent = Math.round((fin/total)*100) + '% do total';
+  document.getElementById('kpi-des-delta').textContent = Math.round((des/total)*100) + '% do total';
+  document.getElementById('kpi-mod-delta').textContent = Math.round((mod/total)*100) + '% do total';
+  document.getElementById('kpi-total-delta').textContent = total + ' reclamações registradas';
+}
+
+// ─── CHARTS ─────────────────────────────────────────────────────────────────
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function updateCharts() {
+  if (!appData.length) return;
+  buildLinhaChart();
+  buildDonutChart();
+  buildBarraAreaChart();
+  buildBarraTipoChart();
+  buildTempoChart();
+}
+
+function buildLinhaChart() {
+  destroyChart('linha');
+  const days = parseInt(document.getElementById('filter-days')?.value || 30);
+  const now = new Date();
+  const labels = [], newCounts = [], pendAcc = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    labels.push(label);
+    const dayStr = d.toDateString();
+    const novos = appData.filter(r => r.dataReclamacao && r.dataReclamacao.toDateString() === dayStr).length;
+    const pend = appData.filter(r => r.status === 'Pendente' && r.dataReclamacao && r.dataReclamacao <= d).length;
+    newCounts.push(novos);
+    pendAcc.push(pend);
+  }
+  const ctx = document.getElementById('chart-linha').getContext('2d');
+  charts['linha'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Novos casos', data: newCounts, borderColor: '#00C4A0', backgroundColor: 'rgba(0,196,160,0.08)', borderWidth: 2, tension: 0.4, pointRadius: 3, fill: true },
+        { label: 'Pendentes acumulados', data: pendAcc, borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 2, tension: 0.4, pointRadius: 3, borderDash: [4,3], fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function buildDonutChart() {
+  destroyChart('donut');
+  const byStatus = groupBy(appData, 'status');
+  const labels = Object.keys(STATUS_COLORS);
+  const data = labels.map(l => (byStatus[l] || []).length);
+  const total = data.reduce((a, b) => a + b, 0);
+  const legendEl = document.getElementById('legend-donut');
+  legendEl.innerHTML = labels.map((l, i) => `<span class="legend-item"><span class="legend-dot" style="background:${Object.values(STATUS_COLORS)[i]}"></span>${l} ${total > 0 ? Math.round(data[i]/total*100) : 0}%</span>`).join('');
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  charts['donut'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: Object.values(STATUS_COLORS), borderWidth: 2, borderColor: '#161B22', hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+  });
+}
+
+function buildBarraAreaChart() {
+  destroyChart('barra-area');
+  const byArea = groupBy(appData, 'area');
+  const sorted = Object.entries(byArea).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
+  const labels = sorted.map(([k]) => k);
+  const data = sorted.map(([, v]) => v.length);
+  const ctx = document.getElementById('chart-barra-area').getContext('2d');
+  charts['barra-area'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Casos', data, backgroundColor: '#00C4A0', borderRadius: 4, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function buildBarraTipoChart() {
+  destroyChart('barra-tipo');
+  const byTipo = groupBy(appData, 'tipo');
+  const sorted = Object.entries(byTipo).sort((a, b) => b[1].length - a[1].length).slice(0, 7);
+  const labels = sorted.map(([k]) => k.length > 18 ? k.slice(0, 16) + '…' : k);
+  const data = sorted.map(([, v]) => v.length);
+  const ctx = document.getElementById('chart-barra-tipo').getContext('2d');
+  charts['barra-tipo'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: '#3B82F6', borderRadius: 4, borderSkipped: false }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true },
+        y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildTempoChart() {
+  destroyChart('tempo');
+  const byArea = groupBy(appData.filter(r => r.dataReclamacao && r.dataFinalizacao && r.status === 'Finalizado'), 'area');
+  const entries = Object.entries(byArea).map(([area, rows]) => {
+    const avg = rows.reduce((sum, r) => sum + (r.dataFinalizacao - r.dataReclamacao) / 86400000, 0) / rows.length;
+    return [area, Math.round(avg * 10) / 10];
+  }).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return;
+  const labels = entries.map(([k]) => k);
+  const data = entries.map(([, v]) => v);
+  const ctx = document.getElementById('chart-tempo').getContext('2d');
+  charts['tempo'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Dias', data, backgroundColor: data.map(v => v > 7 ? '#EF4444' : v > 4 ? '#F59E0B' : '#00C4A0'), borderRadius: 4, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#7D8590', font: { size: 10 }, callback: v => v + 'd' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// ─── POR ÁREA PAGE ──────────────────────────────────────────────────────────
+function populateAreaFilter() {
+  const areas = [...new Set(appData.map(r => r.area))].sort();
+  const sel = document.getElementById('filter-area');
+  sel.innerHTML = '<option value="todas">Todas as áreas</option>';
+  areas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+}
+
+function renderAreaPage() {
+  const areaFilter = document.getElementById('filter-area')?.value || 'todas';
+  const statusFilter = document.getElementById('filter-area-status')?.value || 'todos';
+  let filtered = appData;
+  if (areaFilter !== 'todas') filtered = filtered.filter(r => r.area === areaFilter);
+  if (statusFilter !== 'todos') filtered = filtered.filter(r => r.status === statusFilter);
+
+  const byArea = groupBy(filtered, 'area');
+  const tbody = document.getElementById('table-area-body');
+  tbody.innerHTML = Object.entries(byArea).sort((a, b) => b[1].length - a[1].length).map(([area, rows]) => {
+    const fin = rows.filter(r => r.status === 'Finalizado').length;
+    const pend = rows.filter(r => r.status === 'Pendente').length;
+    const des = rows.filter(r => r.status === 'Desativado').length;
+    const mod = rows.filter(r => r.status === 'Moderado').length;
+    const taxa = Math.round((fin / rows.length) * 100);
+    return `<tr>
+      <td>${area}</td>
+      <td>${rows.length}</td>
+      <td><span class="badge badge-finalizado">${fin}</span></td>
+      <td><span class="badge badge-pendente">${pend}</span></td>
+      <td><span class="badge badge-desativado">${des}</span></td>
+      <td><span class="badge badge-moderado">${mod}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar-wrap" style="width:70px"><div class="progress-bar-fill" style="width:${taxa}%;background:${taxa>70?'#00C4A0':taxa>40?'#F59E0B':'#EF4444'}"></div></div>
+          <span style="font-size:11px;color:var(--text-muted)">${taxa}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  destroyChart('area-barra');
+  destroyChart('area-stack');
+
+  const sorted = Object.entries(byArea).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
+  const labels = sorted.map(([k]) => k);
+
+  const ctx1 = document.getElementById('chart-area-barra').getContext('2d');
+  charts['area-barra'] = new Chart(ctx1, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: sorted.map(([, v]) => v.length), backgroundColor: '#00C4A0', borderRadius: 4, borderSkipped: false }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true } } }
+  });
+
+  const ctx2 = document.getElementById('chart-area-stack').getContext('2d');
+  charts['area-stack'] = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Finalizado', data: sorted.map(([, v]) => v.filter(r => r.status === 'Finalizado').length), backgroundColor: '#00C4A0', borderRadius: 0 },
+        { label: 'Pendente', data: sorted.map(([, v]) => v.filter(r => r.status === 'Pendente').length), backgroundColor: '#F59E0B' },
+        { label: 'Desativado', data: sorted.map(([, v]) => v.filter(r => r.status === 'Desativado').length), backgroundColor: '#EF4444' },
+        { label: 'Moderado', data: sorted.map(([, v]) => v.filter(r => r.status === 'Moderado').length), backgroundColor: '#A855F7' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true } } }
+  });
+}
+
+// ─── POR TIPO PAGE ──────────────────────────────────────────────────────────
+function renderTipoPage() {
+  if (!appData.length) return;
+  destroyChart('tipo-barra'); destroyChart('tipo-polar'); destroyChart('tipo-stack');
+
+  const byTipo = groupBy(appData, 'tipo');
+  const sorted = Object.entries(byTipo).sort((a, b) => b[1].length - a[1].length);
+  const labels = sorted.map(([k]) => k);
+  const wrap = document.getElementById('chart-tipo-wrap');
+  const h = Math.max(280, labels.length * 36 + 60);
+  wrap.style.height = h + 'px';
+
+  const ctx1 = document.getElementById('chart-tipo-barra').getContext('2d');
+  charts['tipo-barra'] = new Chart(ctx1, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: sorted.map(([, v]) => v.length), backgroundColor: '#3B82F6', borderRadius: 4, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }, y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } } } }
+  });
+
+  const top5 = sorted.slice(0, 5);
+  const polar_colors = ['#00C4A0','#3B82F6','#F59E0B','#A855F7','#EF4444'];
+  const ctx2 = document.getElementById('chart-tipo-polar').getContext('2d');
+  charts['tipo-polar'] = new Chart(ctx2, {
+    type: 'polarArea',
+    data: { labels: top5.map(([k]) => k.length > 15 ? k.slice(0,13)+'…' : k), datasets: [{ data: top5.map(([, v]) => v.length), backgroundColor: polar_colors.map(c => c + '99'), borderColor: polar_colors, borderWidth: 1.5 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#7D8590', font: { size: 10 }, boxWidth: 8 } } }, scales: { r: { ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.06)' } } } }
+  });
+
+  const top6 = sorted.slice(0, 6);
+  const ctx3 = document.getElementById('chart-tipo-stack').getContext('2d');
+  charts['tipo-stack'] = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: top6.map(([k]) => k.length > 15 ? k.slice(0,13)+'…' : k),
+      datasets: [
+        { label: 'Finalizado', data: top6.map(([, v]) => v.filter(r => r.status === 'Finalizado').length), backgroundColor: '#00C4A0' },
+        { label: 'Pendente', data: top6.map(([, v]) => v.filter(r => r.status === 'Pendente').length), backgroundColor: '#F59E0B' },
+        { label: 'Desativado', data: top6.map(([, v]) => v.filter(r => r.status === 'Desativado').length), backgroundColor: '#EF4444' },
+        { label: 'Moderado', data: top6.map(([, v]) => v.filter(r => r.status === 'Moderado').length), backgroundColor: '#A855F7' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7D8590', font: { size: 10 }, boxWidth: 8 } } }, scales: { x: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true } } }
+  });
+}
+
+// ─── PRODUTIVIDADE PAGE ─────────────────────────────────────────────────────
+function renderProdPage() {
+  if (!appData.length) return;
+  const sort = document.getElementById('filter-sort')?.value || 'total';
+  const byAnalista = groupBy(appData, 'analista');
+
+  let entries = Object.entries(byAnalista).map(([nome, rows]) => {
+    const fin = rows.filter(r => r.status === 'Finalizado').length;
+    const pend = rows.filter(r => r.status === 'Pendente').length;
+    const des = rows.filter(r => r.status === 'Desativado').length;
+    const mod = rows.filter(r => r.status === 'Moderado').length;
+    const taxa = Math.round((fin / rows.length) * 100);
+    return { nome, total: rows.length, fin, pend, des, mod, taxa };
+  });
+
+  if (sort === 'total') entries.sort((a, b) => b.total - a.total);
+  else if (sort === 'finalizados') entries.sort((a, b) => b.fin - a.fin);
+  else if (sort === 'pendentes') entries.sort((a, b) => b.pend - a.pend);
+  else entries.sort((a, b) => b.taxa - a.taxa);
+
+  const initials = n => n.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+
+  document.getElementById('analyst-cards').innerHTML = entries.map(e => `
+    <div class="analyst-card">
+      <div class="analyst-header">
+        <div class="analyst-avatar">${initials(e.nome)}</div>
+        <div>
+          <div class="analyst-name">${e.nome}</div>
+          <div class="analyst-role">Analista de Relacionamento</div>
+        </div>
+      </div>
+      <div class="analyst-stats">
+        <div><div class="analyst-stat-label">Total</div><div class="analyst-stat-value">${e.total}</div></div>
+        <div><div class="analyst-stat-label">Finalizado</div><div class="analyst-stat-value green">${e.fin}</div></div>
+        <div><div class="analyst-stat-label">Pendente</div><div class="analyst-stat-value amber">${e.pend}</div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:11px;color:var(--text-dim)">Taxa de resolução</span>
+          <span style="font-size:11px;font-weight:600;color:${e.taxa>70?'var(--teal)':e.taxa>40?'var(--amber)':'var(--red)'}">${e.taxa}%</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${e.taxa}%;background:${e.taxa>70?'#00C4A0':e.taxa>40?'#F59E0B':'#EF4444'}"></div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="badge badge-desativado"><i class="ti ti-ban" style="font-size:10px"></i>${e.des} desativ.</span>
+        <span class="badge badge-moderado"><i class="ti ti-eye" style="font-size:10px"></i>${e.mod} moder.</span>
+      </div>
+    </div>
+  `).join('');
+
+  destroyChart('analistas');
+  const wrap = document.getElementById('chart-analista-wrap');
+  wrap.style.height = Math.max(280, entries.length * 50 + 60) + 'px';
+  const ctx = document.getElementById('chart-analistas').getContext('2d');
+  charts['analistas'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: entries.map(e => e.nome),
+      datasets: [
+        { label: 'Finalizado', data: entries.map(e => e.fin), backgroundColor: '#00C4A0' },
+        { label: 'Pendente', data: entries.map(e => e.pend), backgroundColor: '#F59E0B' },
+        { label: 'Desativado', data: entries.map(e => e.des), backgroundColor: '#EF4444' },
+        { label: 'Moderado', data: entries.map(e => e.mod), backgroundColor: '#A855F7' }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true },
+        y: { stacked: true, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ─── CSV PARSER ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split('\n');
+  return lines.slice(1).map(line => {
+    const cols = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { cols.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  }).filter(r => r.some(c => c !== ''));
+}
+
+// ─── GOOGLE SHEETS FETCH ────────────────────────────────────────────────────
+async function fetchGoogleSheets() {
+  try {
+    const resp = await fetch(CSV_URL + '&t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    if (!rows.length) return;
+    appData = processRawRows(rows);
+    populateAreaFilter();
+    updateKPIs();
+    updateCharts();
+    updateSyncTime();
+    const s = document.getElementById('cfg-status');
+    if (s) {
+      s.className = 'config-status ok';
+      document.getElementById('cfg-status-text').textContent = appData.length + ' registros carregados do Google Sheets.';
+    }
+  } catch (e) {
+    console.error('Fetch error:', e);
+    const s = document.getElementById('cfg-status');
+    if (s) {
+      s.className = 'config-status error';
+      document.getElementById('cfg-status-text').textContent = 'Erro ao buscar dados: ' + e.message;
+    }
+  }
+}
+
+function refreshData() { fetchGoogleSheets(); }
+
+function updateSyncTime() {
+  const now = new Date();
+  document.getElementById('last-sync').textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+function saveConfig() {
+  config.siteId = document.getElementById('cfg-site-id').value.trim() || config.siteId;
+  config.driveId = document.getElementById('cfg-drive-id').value.trim() || config.driveId;
+  config.fileId = document.getElementById('cfg-file-id').value.trim() || config.fileId;
+  config.sheet = document.getElementById('cfg-sheet').value.trim() || 'Sheet1';
+  config.interval = parseInt(document.getElementById('cfg-interval').value);
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(fetchSharePoint, config.interval);
+  fetchSharePoint();
+  const s = document.getElementById('cfg-status');
+  s.className = 'config-status ok';
+  document.getElementById('cfg-status-text').textContent = 'Configuração salva. Buscando dados...';
+}
+
+function saveColMapping() {
+  const col = l => { const c = document.getElementById('col-' + l).value.trim().toUpperCase(); return c ? c.charCodeAt(0) - 65 : 0; };
+  config.cols = { data: col('data'), area: col('area'), tipo: col('tipo'), status: col('status'), analista: col('analista'), dataFin: col('fin') };
+  alert('Mapeamento salvo! Atualizando dados...');
+  refreshData();
+}
+
+async function testConnection() {
+  const s = document.getElementById('cfg-status');
+  s.className = 'config-status idle';
+  document.getElementById('cfg-status-text').textContent = 'Testando conexão...';
+  const token = await getAccessToken();
+  if (token) {
+    s.className = 'config-status ok';
+    document.getElementById('cfg-status-text').textContent = 'Conexão estabelecida com sucesso! Buscando dados...';
+    await fetchSharePoint();
+  } else {
+    s.className = 'config-status error';
+    document.getElementById('cfg-status-text').textContent = 'Sem token válido — clique em "Entrar com Microsoft" na tela inicial primeiro.';
+  }
+}
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+document.getElementById('login-overlay').style.display = 'none';
+document.getElementById('app-wrapper').style.display = 'block';
+fetchGoogleSheets();
+refreshTimer = setInterval(fetchGoogleSheets, config.interval);
+</script>
+</body>
+</html>
