@@ -848,10 +848,8 @@
 </div>
 
 <script>
-// ─── CONFIG SHAREPOINT ──────────────────────────────────────────────────────
-// Link de compartilhamento do dados_dashboard.csv, com &download=1 para forçar
-// o download do arquivo bruto em vez de abrir a página de visualização do SharePoint.
-const CSV_URL = 'https://gppalma.sharepoint.com/:x:/s/Marketing/IQBSLKW15opdR6VyhQkgIWE_Aej9qwl0DDbDpWm2-p7UiSE?e=uAEuaa&download=1';
+// ─── CONFIG GOOGLE SHEETS ───────────────────────────────────────────────────
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtyrKHnanrE2k0kA6h-PZW466RzSjJgPyOicAfyxxJ2YQBpJCzTz9DSZakp65NSIyESmJRKWGjdbI-/pub?output=csv';
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let appData = [];
@@ -906,22 +904,10 @@ function parseDate(v) {
   if (!v) return null;
   if (v instanceof Date) return v;
   const s = String(v).trim();
-  if (!s) return null;
-
-  // Formato dd/MM/yyyy (o que o Power Automate está gerando no CSV do SharePoint)
-  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (brMatch) {
-    const [, dd, mm, yyyy] = brMatch;
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    return isNaN(d) ? null : d;
-  }
-
-  // Fallback: número serial do Excel (caso alguma linha ainda venha sem formatar)
   if (!isNaN(Number(s))) {
     const d = new Date((Number(s) - 25569) * 86400000);
     return isNaN(d) ? null : d;
   }
-
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
@@ -1354,15 +1340,12 @@ function parseCSV(text) {
   }).filter(r => r.some(c => c !== ''));
 }
 
-// ─── SHAREPOINT FETCH ───────────────────────────────────────────────────────
-async function fetchSharePoint() {
+// ─── GOOGLE SHEETS FETCH ────────────────────────────────────────────────────
+async function fetchGoogleSheets() {
   try {
     const resp = await fetch(CSV_URL + '&t=' + Date.now());
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    // Lê como bytes e decodifica explicitamente em UTF-8, para corrigir
-    // acentuação quebrada (ex: "ReclamaÃ§Ã£o" em vez de "Reclamação").
-    const buffer = await resp.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buffer);
+    const text = await resp.text();
     const rows = parseCSV(text);
     if (!rows.length) return;
     appData = processRawRows(rows);
@@ -1373,7 +1356,7 @@ async function fetchSharePoint() {
     const s = document.getElementById('cfg-status');
     if (s) {
       s.className = 'config-status ok';
-      document.getElementById('cfg-status-text').textContent = appData.length + ' registros carregados do SharePoint.';
+      document.getElementById('cfg-status-text').textContent = appData.length + ' registros carregados do Google Sheets.';
     }
   } catch (e) {
     console.error('Fetch error:', e);
@@ -1385,7 +1368,7 @@ async function fetchSharePoint() {
   }
 }
 
-function refreshData() { fetchSharePoint(); }
+function refreshData() { fetchGoogleSheets(); }
 
 function updateSyncTime() {
   const now = new Date();
@@ -1432,8 +1415,8 @@ async function testConnection() {
 // ─── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('login-overlay').style.display = 'none';
 document.getElementById('app-wrapper').style.display = 'block';
-fetchSharePoint();
-refreshTimer = setInterval(fetchSharePoint, config.interval);
+fetchGoogleSheets();
+refreshTimer = setInterval(fetchGoogleSheets, config.interval);
 </script>
 </body>
 </html>
