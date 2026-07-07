@@ -5,12 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Caedu · Reclame Aqui · Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script>
-  if (typeof msal === 'undefined') {
-    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.35.0/msal-browser.min.js"><\/script>');
-  }
-</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
   :root {
@@ -399,63 +393,25 @@
   .section-title { font-size: 14px; font-weight: 600; color: var(--text); }
   .section-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
-  /* LOGIN OVERLAY */
-  #login-overlay {
-    position: fixed; inset: 0;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000;
-  }
-  .login-card {
+  /* CONFIG LOCK (senha das Configurações) */
+  .lock-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 36px 32px;
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     text-align: center;
   }
-  .login-logo { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-  .login-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
-  .ms-login-btn {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%;
-    background: #fff;
-    color: #1b1b1b;
-    border: none;
-    border-radius: 8px;
-    padding: 11px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-  .ms-login-btn:hover { opacity: 0.9; }
-  .ms-login-btn img { width: 18px; height: 18px; }
-  .login-status { margin-top: 16px; font-size: 11px; color: var(--text-dim); min-height: 14px; }
-  .login-status.error { color: var(--red); }
-  .login-skip { margin-top: 18px; font-size: 11px; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
-  .login-skip:hover { color: var(--text-muted); }
-  #app-wrapper { display: none; }
+  .lock-card i.lock-icon { font-size: 36px; color: var(--amber); display: block; margin-bottom: 12px; }
+  .lock-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .lock-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+  .lock-error { margin-top: 12px; font-size: 11px; color: var(--red); min-height: 14px; }
 </style>
 </head>
 <body>
 
-<!-- LOGIN OVERLAY -->
-<div id="login-overlay">
-  <div class="login-card">
-    <div class="login-logo">Caedu · RA</div>
-    <div class="login-sub">Painel de Operações — acesso restrito</div>
-    <button class="ms-login-btn" onclick="loginMicrosoft()">
-      <img src="https://img.icons8.com/color/48/microsoft.png" alt="MS" />
-      Entrar com Microsoft
-    </button>
-    <div class="login-status" id="login-status"></div>
-    <div class="login-skip" onclick="skipLogin()">Continuar com dados demo (sem login)</div>
-  </div>
-</div>
-
-<div id="app-wrapper">
+<div id="app-wrapper" style="display:block">
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo">
@@ -508,7 +464,7 @@
         <i class="ti ti-refresh"></i> Atualizar
       </button>
       <button class="btn btn-primary" onclick="navigate('configuracoes')">
-        <i class="ti ti-cloud"></i> SharePoint
+        <i class="ti ti-settings"></i> Configurações
       </button>
     </div>
   </div>
@@ -755,28 +711,32 @@
 
     <!-- PAGE: CONFIGURAÇÕES -->
     <div class="page" id="page-configuracoes">
+
+      <!-- TRAVA DE SENHA -->
+      <div id="config-lock" style="display:flex;justify-content:center;padding:48px 0">
+        <div class="lock-card">
+          <i class="ti ti-lock lock-icon"></i>
+          <div class="lock-title">Área restrita</div>
+          <div class="lock-sub">Digite a senha de administrador para alterar as configurações do painel.</div>
+          <input class="form-input" id="config-password" type="password" placeholder="Senha"
+                 onkeydown="if(event.key==='Enter') unlockConfig()" style="text-align:center" />
+          <button class="btn btn-primary" onclick="unlockConfig()" style="width:100%;justify-content:center;margin-top:12px">
+            <i class="ti ti-lock-open"></i> Desbloquear
+          </button>
+          <div class="lock-error" id="lock-error"></div>
+        </div>
+      </div>
+
+      <!-- CONTEÚDO (só aparece após desbloquear) -->
+      <div id="config-content" style="display:none">
       <div class="config-card">
-        <div class="config-title">Conexão com SharePoint / OneDrive</div>
-        <div class="config-sub">Configure os dados de acesso para buscar a planilha dos analistas em tempo real.</div>
+        <div class="config-title">Fonte de Dados — Google Sheets</div>
+        <div class="config-sub">O painel lê os dados do CSV publicado da planilha do Google Sheets (alimentada automaticamente pelo Power Automate).</div>
 
         <div class="form-group">
-          <label class="form-label">Site ID do SharePoint</label>
-          <input class="form-input" id="cfg-site-id" type="text" placeholder="Ex: contoso.sharepoint.com,abc123..." />
-          <div class="form-hint">Encontrado nas configurações do site no SharePoint</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Drive ID</label>
-          <input class="form-input" id="cfg-drive-id" type="text" placeholder="Ex: b!AbCdEf..." />
-        </div>
-        <div class="form-group">
-          <label class="form-label">ID do Arquivo Excel</label>
-          <input class="form-input" id="cfg-file-id" type="text" placeholder="Ex: 01ABCDEF..." />
-          <div class="form-hint">ID do arquivo Caedu_RELACIONAMENTO.xlsx</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Nome da Aba (Sheet)</label>
-          <input class="form-input" id="cfg-sheet" type="text" placeholder="Ex: Plan1, Sheet1..." value="Sheet1" />
-          <div class="form-hint">Confira o nome exato da aba no Excel (geralmente "Plan1" em arquivos pt-BR ou "Sheet1")</div>
+          <label class="form-label">URL do CSV publicado</label>
+          <input class="form-input" id="cfg-csv-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+          <div class="form-hint">No Sheets: Arquivo → Compartilhar → Publicar na web → formato CSV</div>
         </div>
         <div class="form-group">
           <label class="form-label">Intervalo de Atualização</label>
@@ -798,6 +758,9 @@
           </button>
           <button class="btn" onclick="loadDemoData()">
             <i class="ti ti-database"></i> Carregar Dados Demo
+          </button>
+          <button class="btn" onclick="lockConfig()">
+            <i class="ti ti-lock"></i> Bloquear
           </button>
         </div>
 
@@ -842,15 +805,61 @@
           </button>
         </div>
       </div>
+      </div><!-- /config-content -->
     </div>
 
 </div>
 </div>
+</div><!-- /app-wrapper -->
 
 <script>
 // ─── CONFIG GOOGLE SHEETS ───────────────────────────────────────────────────
-// URL completa, incluindo gid=0 para apontar para a aba correta da planilha.
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtyrKHnanrE2k0kA6h-PZW466RzSjJgPyOicAfyxxJ2YQBpJCzTz9DSZakp65NSIyESmJRKWGjdbI-/pub?gid=0&single=true&output=csv';
+// URL padrão do CSV publicado (pode ser alterada na aba Configurações).
+const DEFAULT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtyrKHnanrE2k0kA6h-PZW466RzSjJgPyOicAfyxxJ2YQBpJCzTz9DSZakp65NSIyESmJRKWGjdbI-/pub?gid=0&single=true&output=csv';
+let CSV_URL = localStorage.getItem('caedu_csv_url') || DEFAULT_CSV_URL;
+
+// ─── SENHA DAS CONFIGURAÇÕES ────────────────────────────────────────────────
+// Hash SHA-256 da senha. Senha atual: "caedu@2026"
+// Para trocar: abra o console do navegador (F12) e rode:
+//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('SUA_NOVA_SENHA')).then(b => console.log([...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('')))
+// Depois cole o resultado aqui:
+const CONFIG_PASS_HASH = 'b8a13dd28e2e9059fd774e10ea6fa8d54b24c61193c86d89d722ef018b5ecd03';
+
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+async function unlockConfig() {
+  const input = document.getElementById('config-password');
+  const err = document.getElementById('lock-error');
+  const hash = await sha256Hex(input.value);
+  if (hash === CONFIG_PASS_HASH) {
+    sessionStorage.setItem('caedu_cfg_unlocked', '1');
+    input.value = '';
+    err.textContent = '';
+    applyConfigLockState();
+  } else {
+    err.textContent = 'Senha incorreta.';
+    input.value = '';
+    input.focus();
+  }
+}
+
+function lockConfig() {
+  sessionStorage.removeItem('caedu_cfg_unlocked');
+  applyConfigLockState();
+}
+
+function applyConfigLockState() {
+  const unlocked = sessionStorage.getItem('caedu_cfg_unlocked') === '1';
+  document.getElementById('config-lock').style.display = unlocked ? 'none' : 'flex';
+  document.getElementById('config-content').style.display = unlocked ? 'block' : 'none';
+  if (unlocked) {
+    document.getElementById('cfg-csv-url').value = CSV_URL;
+    document.getElementById('cfg-interval').value = String(config.interval);
+  }
+}
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let appData = [];
@@ -880,7 +889,7 @@ function navigate(page) {
     'por-area':      ['Por Área', 'Análise de reclamações por setor'],
     'por-tipo':      ['Por Tipo', 'Análise por tipo de problema'],
     'produtividade': ['Produtividade', 'Desempenho individual dos analistas'],
-    'configuracoes': ['Configurações', 'Conexão com SharePoint e mapeamento de colunas']
+    'configuracoes': ['Configurações', 'Fonte de dados (Google Sheets) e mapeamento de colunas']
   };
   const [title, sub] = titles[page] || ['', ''];
   document.getElementById('page-title').textContent = title;
@@ -925,14 +934,25 @@ function parseDate(v) {
   return isNaN(d) ? null : d;
 }
 
+// Normaliza nomes: remove \r invisível, troca espaço não separável (NBSP) por
+// espaço comum, colapsa espaços duplos e padroniza capitalização (Título).
+// Assim "ANA  PAULA", "ana paula " e "Ana Paula" viram todas "Ana Paula".
+function normalizeName(v, fallback) {
+  let s = String(v || '').replace(/\r/g, '').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return fallback;
+  return s.toLowerCase().split(' ').map(p =>
+    ['de','da','do','das','dos','e'].includes(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)
+  ).join(' ');
+}
+
 function processRawRows(rows) {
   const c = config.cols;
   return rows.filter(r => r && r.length > c.status).map(r => ({
     dataReclamacao: parseDate(r[c.data]),
-    area: String(r[c.area] || 'Sem Área').trim(),
-    tipo: String(r[c.tipo] || 'Sem Tipo').trim(),
+    area: normalizeName(r[c.area], 'Sem Área'),
+    tipo: normalizeName(r[c.tipo], 'Sem Tipo'),
     status: normalizeStatus(r[c.status]),
-    analista: String(r[c.analista] || 'Sem Analista').trim(),
+    analista: normalizeName(r[c.analista], 'Sem Analista'),
     dataFinalizacao: parseDate(r[c.dataFin])
   })).filter(r => r.area !== '' && r.status !== '');
 }
@@ -1338,7 +1358,10 @@ function renderProdPage() {
 
 // ─── CSV PARSER ─────────────────────────────────────────────────────────────
 function parseCSV(text) {
-  const lines = text.split('\n');
+  // split(/\r?\n/) em vez de split('\n'): o CSV do Google usa quebras \r\n,
+  // e o \r invisível ficava grudado na última coluna de cada linha,
+  // fazendo valores iguais parecerem diferentes.
+  const lines = text.split(/\r?\n/);
   return lines.slice(1).map(line => {
     const cols = [];
     let cur = '', inQuote = false;
@@ -1393,11 +1416,13 @@ function updateSyncTime() {
 
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
 function saveConfig() {
-  config.siteId = document.getElementById('cfg-site-id').value.trim() || config.siteId;
-  config.driveId = document.getElementById('cfg-drive-id').value.trim() || config.driveId;
-  config.fileId = document.getElementById('cfg-file-id').value.trim() || config.fileId;
-  config.sheet = document.getElementById('cfg-sheet').value.trim() || 'Sheet1';
+  const url = document.getElementById('cfg-csv-url').value.trim();
+  if (url) {
+    CSV_URL = url;
+    localStorage.setItem('caedu_csv_url', url);
+  }
   config.interval = parseInt(document.getElementById('cfg-interval').value);
+  localStorage.setItem('caedu_interval', String(config.interval));
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(fetchGoogleSheets, config.interval);
   fetchGoogleSheets();
@@ -1416,21 +1441,24 @@ function saveColMapping() {
 async function testConnection() {
   const s = document.getElementById('cfg-status');
   s.className = 'config-status idle';
-  document.getElementById('cfg-status-text').textContent = 'Testando conexão...';
-  const token = await getAccessToken();
-  if (token) {
+  document.getElementById('cfg-status-text').textContent = 'Testando conexão com o Google Sheets...';
+  const url = document.getElementById('cfg-csv-url').value.trim() || CSV_URL;
+  try {
+    const resp = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = new TextDecoder('utf-8').decode(await resp.arrayBuffer());
+    const rows = parseCSV(text);
     s.className = 'config-status ok';
-    document.getElementById('cfg-status-text').textContent = 'Conexão estabelecida com sucesso! Buscando dados...';
-    await fetchGoogleSheets();
-  } else {
+    document.getElementById('cfg-status-text').textContent = 'Conexão OK! ' + rows.length + ' linhas encontradas na planilha.';
+  } catch (e) {
     s.className = 'config-status error';
-    document.getElementById('cfg-status-text').textContent = 'Sem token válido — clique em "Entrar com Microsoft" na tela inicial primeiro.';
+    document.getElementById('cfg-status-text').textContent = 'Falha na conexão: ' + e.message;
   }
 }
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
-document.getElementById('login-overlay').style.display = 'none';
-document.getElementById('app-wrapper').style.display = 'block';
+config.interval = parseInt(localStorage.getItem('caedu_interval')) || config.interval;
+applyConfigLockState();
 fetchGoogleSheets();
 refreshTimer = setInterval(fetchGoogleSheets, config.interval);
 </script>
