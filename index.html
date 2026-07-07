@@ -393,6 +393,23 @@
   .section-title { font-size: 14px; font-weight: 600; color: var(--text); }
   .section-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
+  /* BANNER DE ERRO */
+  .error-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 32px 0;
+    padding: 10px 16px;
+    background: var(--red-dim);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: var(--radius);
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .error-banner.show { display: flex; }
+  .error-banner i { font-size: 16px; flex-shrink: 0; }
+
   /* CONFIG LOCK (senha das Configurações) */
   .lock-card {
     background: var(--surface);
@@ -424,23 +441,23 @@
   </div>
 
   <div class="nav-section">Monitoramento</div>
-  <div class="nav-item active" onclick="navigate('visao-geral')">
+  <div class="nav-item active" data-page="visao-geral" onclick="navigate('visao-geral')">
     <i class="ti ti-layout-dashboard"></i> Visão Geral
   </div>
-  <div class="nav-item" onclick="navigate('por-area')">
+  <div class="nav-item" data-page="por-area" onclick="navigate('por-area')">
     <i class="ti ti-building-store"></i> Por Área
   </div>
-  <div class="nav-item" onclick="navigate('por-tipo')">
+  <div class="nav-item" data-page="por-tipo" onclick="navigate('por-tipo')">
     <i class="ti ti-tag"></i> Por Tipo
   </div>
 
   <div class="nav-section">Equipe</div>
-  <div class="nav-item" onclick="navigate('produtividade')">
+  <div class="nav-item" data-page="produtividade" onclick="navigate('produtividade')">
     <i class="ti ti-users"></i> Produtividade
   </div>
 
   <div class="nav-section">Sistema</div>
-  <div class="nav-item" onclick="navigate('configuracoes')">
+  <div class="nav-item" data-page="configuracoes" onclick="navigate('configuracoes')">
     <i class="ti ti-settings"></i> Configurações
   </div>
 
@@ -460,6 +477,13 @@
       <div class="topbar-sub" id="page-sub">Todos os dados unificados da operação</div>
     </div>
     <div class="topbar-actions">
+      <select class="filter-select" id="filter-periodo" onchange="refreshViews()" title="Período dos dados exibidos em todo o painel">
+        <option value="todos">Todo o período</option>
+        <option value="mes">Mês atual</option>
+        <option value="7">Últimos 7 dias</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+      </select>
       <button class="btn" onclick="refreshData()">
         <i class="ti ti-refresh"></i> Atualizar
       </button>
@@ -467,6 +491,15 @@
         <i class="ti ti-settings"></i> Configurações
       </button>
     </div>
+  </div>
+
+  <!-- BANNER DE ERRO (aparece em qualquer página quando a atualização falha) -->
+  <div class="error-banner" id="error-banner">
+    <i class="ti ti-alert-triangle"></i>
+    <span id="error-banner-text"></span>
+    <button class="btn" onclick="refreshData()" style="margin-left:auto;flex-shrink:0">
+      <i class="ti ti-refresh"></i> Tentar novamente
+    </button>
   </div>
 
   <div class="content">
@@ -881,7 +914,9 @@ const STATUS_COLORS = {
 function navigate(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-  event.currentTarget.classList.add('active');
+  // Destaca o item do menu pelo data-page — funciona vindo de qualquer lugar
+  // (menu lateral, botão da topbar ou chamada direta no código).
+  document.querySelector('.nav-item[data-page="' + page + '"]')?.classList.add('active');
   document.getElementById('page-' + page).classList.add('active');
 
   const titles = {
@@ -934,6 +969,17 @@ function parseDate(v) {
   return isNaN(d) ? null : d;
 }
 
+// Converte caracteres especiais de HTML em texto inofensivo antes de inserir
+// dados da planilha na página. Assim, se alguém digitar "<urgente>" numa
+// célula, aparece como texto em vez de ser interpretado como tag HTML.
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 // Normaliza nomes: remove \r invisível, troca espaço não separável (NBSP) por
 // espaço comum, colapsa espaços duplos e padroniza capitalização (Título).
 // Assim "ANA  PAULA", "ana paula " e "Ana Paula" viram todas "Ana Paula".
@@ -964,6 +1010,30 @@ function groupBy(arr, key) {
     acc[k].push(item);
     return acc;
   }, {});
+}
+
+// ─── FILTRO DE PERÍODO GLOBAL ───────────────────────────────────────────────
+// Retorna os dados já filtrados pelo período selecionado na topbar.
+// Todas as páginas e gráficos leem daqui em vez de ler appData direto.
+function getFilteredData() {
+  const p = document.getElementById('filter-periodo')?.value || 'todos';
+  if (p === 'todos') return appData;
+  const now = new Date();
+  let inicio;
+  if (p === 'mes') inicio = new Date(now.getFullYear(), now.getMonth(), 1);
+  else inicio = new Date(now.getTime() - parseInt(p) * 86400000);
+  return appData.filter(r => r.dataReclamacao && r.dataReclamacao >= inicio);
+}
+
+// Re-renderiza KPIs, gráficos da Visão Geral e a página que estiver aberta.
+// Chamado quando o período muda e quando novos dados chegam do Sheets.
+function refreshViews() {
+  updateKPIs();
+  updateCharts();
+  const ativa = document.querySelector('.page.active')?.id || '';
+  if (ativa === 'page-por-area') renderAreaPage();
+  if (ativa === 'page-por-tipo') renderTipoPage();
+  if (ativa === 'page-produtividade') renderProdPage();
 }
 
 // ─── DEMO DATA ──────────────────────────────────────────────────────────────
@@ -997,27 +1067,29 @@ function loadDemoData() {
   config.cols = { data: 0, area: 1, tipo: 2, status: 3, analista: 4, dataFin: 5 };
   appData = processRawRows(rows);
   populateAreaFilter();
-  updateKPIs();
-  updateCharts();
+  refreshViews();
   updateSyncTime();
+  hideErrorBanner();
 
   const s = document.getElementById('cfg-status');
   s.className = 'config-status ok';
   document.getElementById('cfg-status-text').textContent = '320 registros demo carregados com sucesso.';
 
-  navigate.call(document.querySelector('.nav-item'), 'visao-geral');
-  document.querySelectorAll('.nav-item').forEach((el, i) => { if (i === 0) el.classList.add('active'); else el.classList.remove('active'); });
+  navigate('visao-geral');
 }
 
 // ─── KPIs ───────────────────────────────────────────────────────────────────
 function updateKPIs() {
-  const total = appData.length;
-  const byStatus = groupBy(appData, 'status');
+  const data = getFilteredData();
+  const total = data.length;
+  const byStatus = groupBy(data, 'status');
   const fin = (byStatus['Finalizado'] || []).length;
   const pend = (byStatus['Pendente'] || []).length;
   const des = (byStatus['Desativado'] || []).length;
   const mod = (byStatus['Moderado'] || []).length;
-  const taxa = total > 0 ? Math.round((fin / total) * 100) : 0;
+  // pct evita NaN na tela quando o período filtrado não tem nenhum registro
+  const pct = v => total > 0 ? Math.round((v / total) * 100) : 0;
+  const taxa = pct(fin);
 
   document.getElementById('kpi-total').textContent = total;
   document.getElementById('kpi-finalizados').textContent = fin;
@@ -1025,10 +1097,10 @@ function updateKPIs() {
   document.getElementById('kpi-desativados').textContent = des;
   document.getElementById('kpi-moderados').textContent = mod;
   document.getElementById('kpi-taxa').textContent = taxa + '%';
-  document.getElementById('kpi-pend-delta').textContent = Math.round((pend/total)*100) + '% do total';
-  document.getElementById('kpi-fin-delta').textContent = Math.round((fin/total)*100) + '% do total';
-  document.getElementById('kpi-des-delta').textContent = Math.round((des/total)*100) + '% do total';
-  document.getElementById('kpi-mod-delta').textContent = Math.round((mod/total)*100) + '% do total';
+  document.getElementById('kpi-pend-delta').textContent = pct(pend) + '% do total';
+  document.getElementById('kpi-fin-delta').textContent = pct(fin) + '% do total';
+  document.getElementById('kpi-des-delta').textContent = pct(des) + '% do total';
+  document.getElementById('kpi-mod-delta').textContent = pct(mod) + '% do total';
   document.getElementById('kpi-total-delta').textContent = total + ' reclamações registradas';
 }
 
@@ -1049,6 +1121,7 @@ function updateCharts() {
 function buildLinhaChart() {
   destroyChart('linha');
   const days = parseInt(document.getElementById('filter-days')?.value || 30);
+  const fdata = getFilteredData();
   const now = new Date();
   const labels = [], newCounts = [], pendAcc = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -1056,8 +1129,8 @@ function buildLinhaChart() {
     const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     labels.push(label);
     const dayStr = d.toDateString();
-    const novos = appData.filter(r => r.dataReclamacao && r.dataReclamacao.toDateString() === dayStr).length;
-    const pend = appData.filter(r => r.status === 'Pendente' && r.dataReclamacao && r.dataReclamacao <= d).length;
+    const novos = fdata.filter(r => r.dataReclamacao && r.dataReclamacao.toDateString() === dayStr).length;
+    const pend = fdata.filter(r => r.status === 'Pendente' && r.dataReclamacao && r.dataReclamacao <= d).length;
     newCounts.push(novos);
     pendAcc.push(pend);
   }
@@ -1084,7 +1157,7 @@ function buildLinhaChart() {
 
 function buildDonutChart() {
   destroyChart('donut');
-  const byStatus = groupBy(appData, 'status');
+  const byStatus = groupBy(getFilteredData(), 'status');
   const labels = Object.keys(STATUS_COLORS);
   const data = labels.map(l => (byStatus[l] || []).length);
   const total = data.reduce((a, b) => a + b, 0);
@@ -1100,7 +1173,7 @@ function buildDonutChart() {
 
 function buildBarraAreaChart() {
   destroyChart('barra-area');
-  const byArea = groupBy(appData, 'area');
+  const byArea = groupBy(getFilteredData(), 'area');
   const sorted = Object.entries(byArea).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
   const labels = sorted.map(([k]) => k);
   const data = sorted.map(([, v]) => v.length);
@@ -1121,7 +1194,7 @@ function buildBarraAreaChart() {
 
 function buildBarraTipoChart() {
   destroyChart('barra-tipo');
-  const byTipo = groupBy(appData, 'tipo');
+  const byTipo = groupBy(getFilteredData(), 'tipo');
   const sorted = Object.entries(byTipo).sort((a, b) => b[1].length - a[1].length).slice(0, 7);
   const labels = sorted.map(([k]) => k.length > 18 ? k.slice(0, 16) + '…' : k);
   const data = sorted.map(([, v]) => v.length);
@@ -1143,7 +1216,7 @@ function buildBarraTipoChart() {
 
 function buildTempoChart() {
   destroyChart('tempo');
-  const byArea = groupBy(appData.filter(r => r.dataReclamacao && r.dataFinalizacao && r.status === 'Finalizado'), 'area');
+  const byArea = groupBy(getFilteredData().filter(r => r.dataReclamacao && r.dataFinalizacao && r.status === 'Finalizado'), 'area');
   const entries = Object.entries(byArea).map(([area, rows]) => {
     const avg = rows.reduce((sum, r) => sum + (r.dataFinalizacao - r.dataReclamacao) / 86400000, 0) / rows.length;
     return [area, Math.round(avg * 10) / 10];
@@ -1177,7 +1250,7 @@ function populateAreaFilter() {
 function renderAreaPage() {
   const areaFilter = document.getElementById('filter-area')?.value || 'todas';
   const statusFilter = document.getElementById('filter-area-status')?.value || 'todos';
-  let filtered = appData;
+  let filtered = getFilteredData();
   if (areaFilter !== 'todas') filtered = filtered.filter(r => r.area === areaFilter);
   if (statusFilter !== 'todos') filtered = filtered.filter(r => r.status === statusFilter);
 
@@ -1190,7 +1263,7 @@ function renderAreaPage() {
     const mod = rows.filter(r => r.status === 'Moderado').length;
     const taxa = Math.round((fin / rows.length) * 100);
     return `<tr>
-      <td>${area}</td>
+      <td>${escapeHtml(area)}</td>
       <td>${rows.length}</td>
       <td><span class="badge badge-finalizado">${fin}</span></td>
       <td><span class="badge badge-pendente">${pend}</span></td>
@@ -1239,7 +1312,7 @@ function renderTipoPage() {
   if (!appData.length) return;
   destroyChart('tipo-barra'); destroyChart('tipo-polar'); destroyChart('tipo-stack');
 
-  const byTipo = groupBy(appData, 'tipo');
+  const byTipo = groupBy(getFilteredData(), 'tipo');
   const sorted = Object.entries(byTipo).sort((a, b) => b[1].length - a[1].length);
   const labels = sorted.map(([k]) => k);
   const wrap = document.getElementById('chart-tipo-wrap');
@@ -1283,7 +1356,7 @@ function renderTipoPage() {
 function renderProdPage() {
   if (!appData.length) return;
   const sort = document.getElementById('filter-sort')?.value || 'total';
-  const byAnalista = groupBy(appData, 'analista');
+  const byAnalista = groupBy(getFilteredData(), 'analista');
 
   let entries = Object.entries(byAnalista).map(([nome, rows]) => {
     const fin = rows.filter(r => r.status === 'Finalizado').length;
@@ -1304,9 +1377,9 @@ function renderProdPage() {
   document.getElementById('analyst-cards').innerHTML = entries.map(e => `
     <div class="analyst-card">
       <div class="analyst-header">
-        <div class="analyst-avatar">${initials(e.nome)}</div>
+        <div class="analyst-avatar">${escapeHtml(initials(e.nome))}</div>
         <div>
-          <div class="analyst-name">${e.nome}</div>
+          <div class="analyst-name">${escapeHtml(e.nome)}</div>
           <div class="analyst-role">Analista de Relacionamento</div>
         </div>
       </div>
@@ -1367,7 +1440,12 @@ function parseCSV(text) {
     let cur = '', inQuote = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
-      if (ch === '"') { inQuote = !inQuote; }
+      if (ch === '"') {
+        // Aspas duplas seguidas ("") dentro de um campo entre aspas é como o
+        // CSV representa uma aspa literal no texto — vira uma aspa só.
+        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+        else { inQuote = !inQuote; }
+      }
       else if (ch === ',' && !inQuote) { cols.push(cur.trim()); cur = ''; }
       else { cur += ch; }
     }
@@ -1389,9 +1467,9 @@ async function fetchGoogleSheets() {
     if (!rows.length) return;
     appData = processRawRows(rows);
     populateAreaFilter();
-    updateKPIs();
-    updateCharts();
+    refreshViews();
     updateSyncTime();
+    hideErrorBanner();
     const s = document.getElementById('cfg-status');
     if (s) {
       s.className = 'config-status ok';
@@ -1399,12 +1477,32 @@ async function fetchGoogleSheets() {
     }
   } catch (e) {
     console.error('Fetch error:', e);
+    showErrorBanner(e.message);
     const s = document.getElementById('cfg-status');
     if (s) {
       s.className = 'config-status error';
       document.getElementById('cfg-status-text').textContent = 'Erro ao buscar dados: ' + e.message;
     }
   }
+}
+
+// ─── BANNER DE ERRO ─────────────────────────────────────────────────────────
+// Visível em qualquer página quando a atualização falha — importante agora
+// que os detalhes de conexão ficam atrás da senha das Configurações.
+function showErrorBanner(msg) {
+  const b = document.getElementById('error-banner');
+  const t = document.getElementById('error-banner-text');
+  const ultimaSync = document.getElementById('last-sync').textContent;
+  if (appData.length && ultimaSync !== '—') {
+    t.textContent = 'Falha ao atualizar os dados — exibindo dados de ' + ultimaSync + '. (' + msg + ')';
+  } else {
+    t.textContent = 'Não foi possível carregar os dados da planilha. (' + msg + ')';
+  }
+  b.classList.add('show');
+}
+
+function hideErrorBanner() {
+  document.getElementById('error-banner').classList.remove('show');
 }
 
 function refreshData() { fetchGoogleSheets(); }
