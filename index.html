@@ -1221,11 +1221,13 @@ function parseDate(v) {
   const s = String(v).trim();
   if (!s) return null;
 
-  // Formato dd/MM/yyyy (o que o Power Automate está gerando no CSV do SharePoint)
-  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  // Formato dd/MM/yyyy, com hora opcional (ex: "01/11/2025" ou "01/11/2025 0:54").
+  // Sem o "$" no fim: a hora não atrapalha, e evita cair no fallback que
+  // interpretaria a data no formato americano (mês/dia trocados).
+  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T,]+(\d{1,2}):(\d{2}))?/);
   if (brMatch) {
-    const [, dd, mm, yyyy] = brMatch;
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    const [, dd, mm, yyyy, hh, min] = brMatch;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh || 0), Number(min || 0));
     return isNaN(d) ? null : d;
   }
 
@@ -1780,12 +1782,26 @@ function parseSimNao(v) {
   return s.startsWith('s') || s === 'true' || s === '1';
 }
 
+// A coluna "Resolvido" pode vir como "Sim"/"Não" OU no formato do Reclame Aqui:
+// "Avaliado Resolvido" / "Avaliado Não Resolvido". Detecta os dois.
+// A ordem importa: testamos "não" primeiro, porque "avaliado não resolvido"
+// contém tanto "não" quanto "resolv".
+function parseResolvido(v) {
+  const s = String(v || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // remove acentos: "não" → "nao"
+    .trim();
+  if (!s) return false;
+  if (s.includes('nao')) return false;   // "avaliado nao resolvido", "nao"
+  if (s.includes('resolv')) return true;  // "avaliado resolvido"
+  return s.startsWith('s') || s === '1' || s === 'true';  // "sim"
+}
+
 function processAvalRows(rows) {
   // Colunas fixas da aba Avaliacoes: A Data, B Nota, C Resolvido, D Voltaria, E Analista
   return rows.map(r => ({
     data: parseDate(r[0]),
     nota: parseFloat(String(r[1] || '').replace(',', '.')),  // aceita "7,5" e "7.5"
-    resolvido: parseSimNao(r[2]),
+    resolvido: parseResolvido(r[2]),
     voltaria: parseSimNao(r[3]),
     analista: normalizeName(r[4], 'Sem Analista')
   })).filter(r => !isNaN(r.nota) && r.nota >= 0 && r.nota <= 10);
