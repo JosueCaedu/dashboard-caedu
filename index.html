@@ -393,6 +393,87 @@
   .section-title { font-size: 14px; font-weight: 600; color: var(--text); }
   .section-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
+  /* ESCALA DE REPUTAÇÃO (Projeção) */
+  .ra-scale { position: relative; padding-top: 130px; margin: 8px 4px 34px; }
+  .ra-bar {
+    display: flex;
+    height: 40px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  .ra-seg {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .ra-ticks { position: relative; height: 26px; }
+  .ra-ticks span {
+    position: absolute;
+    top: 8px;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    min-width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0 4px;
+  }
+  .ra-markers { position: absolute; top: 0; left: 0; right: 0; height: 130px; }
+  .ra-marker {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* drop-shadow (em vez de box-shadow) envolve o balão E a ponta numa sombra só */
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.38));
+  }
+  .ra-pin {
+    background: #fff;
+    border-radius: 44%;
+    padding: 9px 12px 7px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    position: relative;
+  }
+  /* ponta inferior do balão (a "gota") */
+  .ra-pin::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 12px solid #fff;
+  }
+  .ra-face { display: block; line-height: 0; }
+  .ra-face svg { display: block; width: 100%; height: 100%; }
+  .ra-pin-val { font-size: 13px; font-weight: 800; color: #555; line-height: 1; }
+  .ra-marker.main { z-index: 3; }
+  .ra-marker.main .ra-face { width: 64px; height: 64px; }
+  .ra-marker.main .ra-pin { padding: 12px 16px 8px; }
+  .ra-marker.main .ra-pin-val { font-size: 22px; color: #333; }
+  .ra-marker.mini { bottom: 30px; z-index: 2; }
+  .ra-marker.mini .ra-face { width: 34px; height: 34px; }
+  .ra-marker.mini .ra-pin { padding: 7px 9px 6px; }
+  .ra-marker.mini .ra-pin-val { font-size: 11px; color: #666; }
+
   /* BANNER DE ERRO */
   .error-banner {
     display: none;
@@ -454,6 +535,14 @@
   <div class="nav-section">Equipe</div>
   <div class="nav-item" data-page="produtividade" onclick="navigate('produtividade')">
     <i class="ti ti-users"></i> Produtividade
+  </div>
+
+  <div class="nav-section">Reputação</div>
+  <div class="nav-item" data-page="avaliacao" onclick="navigate('avaliacao')">
+    <i class="ti ti-star"></i> Avaliação
+  </div>
+  <div class="nav-item" data-page="projecao" onclick="navigate('projecao')">
+    <i class="ti ti-trending-up"></i> Projeção
   </div>
 
   <div class="nav-section">Sistema</div>
@@ -742,6 +831,174 @@
       </div>
     </div>
 
+    <!-- PAGE: AVALIAÇÃO -->
+    <div class="page" id="page-avaliacao">
+      <div class="empty-state" id="aval-empty" style="display:none">
+        <i class="ti ti-star"></i>
+        <p><strong>Nenhuma avaliação carregada ainda.</strong></p>
+        <p style="margin-top:8px">Crie a aba "Avaliacoes" na planilha do Google Sheets e configure a URL do CSV em Configurações.<br>Colunas esperadas: <b>A</b> Data · <b>B</b> Nota (0-10) · <b>C</b> Problema resolvido (Sim/Não) · <b>D</b> Voltaria a fazer negócio (Sim/Não) · <b>E</b> Analista (opcional)</p>
+      </div>
+
+      <div id="aval-content" style="display:none">
+        <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+          <div class="kpi-card blue">
+            <div class="kpi-label">Avaliações</div>
+            <div class="kpi-value blue" id="kpi-aval-total">—</div>
+            <div class="kpi-delta">no período selecionado</div>
+            <i class="ti ti-star kpi-icon" style="color:var(--blue)"></i>
+          </div>
+          <div class="kpi-card teal">
+            <div class="kpi-label">Nota Média (MA)</div>
+            <div class="kpi-value teal" id="kpi-aval-nota">—</div>
+            <div class="kpi-delta">escala de 0 a 10</div>
+            <i class="ti ti-medal kpi-icon" style="color:var(--teal)"></i>
+          </div>
+          <div class="kpi-card teal">
+            <div class="kpi-label">Problema Resolvido (IS)</div>
+            <div class="kpi-value" id="kpi-aval-resolvido">—</div>
+            <div class="kpi-delta">responderam "Sim"</div>
+            <i class="ti ti-circle-check kpi-icon" style="color:var(--teal)"></i>
+          </div>
+          <div class="kpi-card purple">
+            <div class="kpi-label">Voltaria a Negociar (IN)</div>
+            <div class="kpi-value" style="color:var(--purple)" id="kpi-aval-voltaria">—</div>
+            <div class="kpi-delta">responderam "Sim"</div>
+            <i class="ti ti-repeat kpi-icon" style="color:var(--purple)"></i>
+          </div>
+          <div class="kpi-card amber">
+            <div class="kpi-label">NPS</div>
+            <div class="kpi-value amber" id="kpi-aval-nps">—</div>
+            <div class="kpi-delta" id="kpi-aval-nps-delta">promotores − detratores</div>
+            <i class="ti ti-mood-smile kpi-icon" style="color:var(--amber)"></i>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Problema Resolvido?</div>
+                <div class="chart-sub">Índice de Solução — entra na nota do RA</div>
+              </div>
+            </div>
+            <div class="chart-legend" id="legend-aval-resolvido"></div>
+            <div class="chart-wrap" style="height:260px">
+              <canvas id="chart-aval-resolvido" role="img" aria-label="Problema resolvido sim ou não"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Voltaria a Fazer Negócio?</div>
+                <div class="chart-sub">Índice de Novos Negócios — entra na nota do RA</div>
+              </div>
+            </div>
+            <div class="chart-legend" id="legend-aval-voltaria"></div>
+            <div class="chart-wrap" style="height:260px">
+              <canvas id="chart-aval-voltaria" role="img" aria-label="Voltaria a fazer negócio sim ou não"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Distribuição das Notas</div>
+                <div class="chart-sub">Quantidade de avaliações por nota (0 a 10)</div>
+              </div>
+            </div>
+            <div class="chart-wrap" style="height:280px">
+              <canvas id="chart-aval-notas" role="img" aria-label="Distribuição das notas"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Evolução da Nota Média</div>
+                <div class="chart-sub">Média mensal das avaliações</div>
+              </div>
+            </div>
+            <div class="chart-wrap" style="height:280px">
+              <canvas id="chart-aval-evolucao" role="img" aria-label="Evolução mensal da nota média"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: PROJEÇÃO -->
+    <div class="page" id="page-projecao">
+      <div class="empty-state" id="proj-empty" style="display:none">
+        <i class="ti ti-trending-up"></i>
+        <p><strong>Sem dados de avaliação para projetar.</strong></p>
+        <p style="margin-top:8px">A projeção usa os dados da aba "Avaliacoes" do Google Sheets. Configure a URL em Configurações.</p>
+      </div>
+
+      <div id="proj-content" style="display:none">
+        <div class="chart-card full" style="margin-bottom:20px">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Escala de Reputação — Reclame Aqui</div>
+              <div class="chart-sub">Nota calculada com seus dados de avaliação + cenários otimista e pessimista</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="filter-label">Índice de Resposta (IR):</span>
+              <input class="form-input" id="proj-ir" type="number" min="0" max="100" step="1"
+                     style="width:80px;padding:6px 10px" onchange="onIrChange()" /> <span class="filter-label">%</span>
+            </div>
+          </div>
+
+          <div class="ra-scale" id="ra-scale">
+            <div class="ra-markers" id="ra-markers"></div>
+            <div class="ra-bar">
+              <div class="ra-seg" style="background:#9333EA">não recomendado</div>
+              <div class="ra-seg" style="background:#EF4444">ruim</div>
+              <div class="ra-seg" style="background:#F59E0B">regular</div>
+              <div class="ra-seg" style="background:#3B82F6">bom</div>
+              <div class="ra-seg" style="background:#22C55E">ótimo</div>
+              <div class="ra-seg" style="background:#EAB308;color:#1a1a1a">RA 1000</div>
+            </div>
+            <div class="ra-ticks">
+              <span style="left:16.666%">&lt;5</span>
+              <span style="left:33.333%">6</span>
+              <span style="left:50%">7</span>
+              <span style="left:66.666%">8</span>
+              <span style="left:83.333%">10</span>
+            </div>
+          </div>
+
+          <div id="ra-resumo" style="margin-top:18px;font-size:13px;color:var(--text-muted)"></div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)" id="proj-indicadores"></div>
+
+        <div class="chart-card full">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Como a nota é estimada</div>
+              <div class="chart-sub">Baseado na metodologia pública do Reclame Aqui — pesos aproximados</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.7">
+            <div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:var(--amber);font-size:12px">
+              <i class="ti ti-info-circle"></i> Esta é uma <b>estimativa própria</b>, não a nota oficial. O RA usa estes quatro indicadores numa média ponderada, mas os pesos exatos da fórmula não são divulgados publicamente. Os valores abaixo são uma aproximação — use como tendência, não como número exato.
+            </div>
+            <code id="proj-formula" style="background:var(--surface2);padding:8px 14px;border-radius:8px;display:inline-block;color:var(--teal);font-size:13px"></code>
+            <p style="margin-top:12px">
+              <b>IR</b> — Índice de Resposta (% de reclamações respondidas). Não vem da planilha de avaliações; ajuste o valor no campo acima conforme o painel do RA.<br>
+              <b>MA</b> — Média das Avaliações (nota do consumidor de 0 a 10).<br>
+              <b>IS</b> — Índice de Solução (% que respondeu "Sim" para problema resolvido).<br>
+              <b>IN</b> — Índice de Novos Negócios (% que voltaria a fazer negócio).
+            </p>
+            <p style="margin-top:8px;color:var(--text-dim)">
+              Cenários: o <b style="color:#22C55E">otimista</b> simula as próximas avaliações todas positivas (nota 10, resolvido, voltaria) e o <b style="color:#F59E0B">pessimista</b> todas negativas (nota 1, não resolvido, não voltaria) — a quantidade simulada equivale a 10% do volume atual (mínimo 5). Regras do RA: menos de 10 avaliações = sem reputação definida; IR abaixo de 50% = Não Recomendada automaticamente. Selo RA 1000 exige 50+ avaliações, IR ≥ 90%, IS ≥ 90%, MA ≥ 7 e IN ≥ 70%.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- PAGE: CONFIGURAÇÕES -->
     <div class="page" id="page-configuracoes">
 
@@ -770,6 +1027,11 @@
           <label class="form-label">URL do CSV publicado</label>
           <input class="form-input" id="cfg-csv-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
           <div class="form-hint">No Sheets: Arquivo → Compartilhar → Publicar na web → formato CSV</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL do CSV — Aba Avaliações (opcional)</label>
+          <input class="form-input" id="cfg-aval-url" type="text" placeholder="Mesma URL, trocando gid=0 pelo gid da aba Avaliacoes" />
+          <div class="form-hint">Alimenta as páginas Avaliação e Projeção. Colunas: A Data · B Nota · C Resolvido · D Voltaria · E Analista</div>
         </div>
         <div class="form-group">
           <label class="form-label">Intervalo de Atualização</label>
@@ -890,12 +1152,16 @@ function applyConfigLockState() {
   document.getElementById('config-content').style.display = unlocked ? 'block' : 'none';
   if (unlocked) {
     document.getElementById('cfg-csv-url').value = CSV_URL;
+    document.getElementById('cfg-aval-url').value = AVAL_CSV_URL;
     document.getElementById('cfg-interval').value = String(config.interval);
   }
 }
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let appData = [];
+let avalData = [];  // avaliações dos clientes (aba Avaliacoes do Sheets)
+let AVAL_CSV_URL = localStorage.getItem('caedu_aval_url') || '';
+let irPercent = parseFloat(localStorage.getItem('caedu_ir')) || 100;  // Índice de Resposta
 let charts = {};
 let refreshTimer = null;
 let config = {
@@ -924,6 +1190,8 @@ function navigate(page) {
     'por-area':      ['Por Área', 'Análise de reclamações por setor'],
     'por-tipo':      ['Por Tipo', 'Análise por tipo de problema'],
     'produtividade': ['Produtividade', 'Desempenho individual dos analistas'],
+    'avaliacao':     ['Avaliação', 'Como os clientes avaliam o atendimento no Reclame Aqui'],
+    'projecao':      ['Projeção de Reputação', 'Estimativa da nota do RA a partir das suas avaliações'],
     'configuracoes': ['Configurações', 'Fonte de dados (Google Sheets) e mapeamento de colunas']
   };
   const [title, sub] = titles[page] || ['', ''];
@@ -933,6 +1201,8 @@ function navigate(page) {
   if (page === 'por-area') renderAreaPage();
   if (page === 'produtividade') renderProdPage();
   if (page === 'por-tipo') renderTipoPage();
+  if (page === 'avaliacao') renderAvaliacaoPage();
+  if (page === 'projecao') renderProjecaoPage();
 }
 
 // ─── DATA PROCESSING ───────────────────────────────────────────────────────
@@ -1034,6 +1304,8 @@ function refreshViews() {
   if (ativa === 'page-por-area') renderAreaPage();
   if (ativa === 'page-por-tipo') renderTipoPage();
   if (ativa === 'page-produtividade') renderProdPage();
+  if (ativa === 'page-avaliacao') renderAvaliacaoPage();
+  if (ativa === 'page-projecao') renderProjecaoPage();
 }
 
 // ─── DEMO DATA ──────────────────────────────────────────────────────────────
@@ -1066,6 +1338,21 @@ function loadDemoData() {
 
   config.cols = { data: 0, area: 1, tipo: 2, status: 3, analista: 4, dataFin: 5 };
   appData = processRawRows(rows);
+
+  // Avaliações demo: distribuição realista puxada para notas altas
+  avalData = [];
+  for (let i = 0; i < 150; i++) {
+    const diasAtras = Math.floor(Math.random() * 90);
+    const boa = Math.random() < 0.72;  // ~72% de avaliações positivas
+    avalData.push({
+      data: new Date(now - diasAtras * 86400000),
+      nota: boa ? 7 + Math.floor(Math.random() * 4) : Math.floor(Math.random() * 7),
+      resolvido: boa || Math.random() < 0.3,
+      voltaria: boa ? Math.random() < 0.9 : Math.random() < 0.25,
+      analista: analistas[Math.floor(Math.random() * analistas.length)]
+    });
+  }
+
   populateAreaFilter();
   refreshViews();
   updateSyncTime();
@@ -1486,6 +1773,304 @@ async function fetchGoogleSheets() {
   }
 }
 
+// ─── AVALIAÇÕES: FETCH E PROCESSAMENTO ──────────────────────────────────────
+// Interpreta "Sim"/"sim"/"S" como verdadeiro e "Não"/"nao"/"N" como falso.
+function parseSimNao(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s.startsWith('s') || s === 'true' || s === '1';
+}
+
+function processAvalRows(rows) {
+  // Colunas fixas da aba Avaliacoes: A Data, B Nota, C Resolvido, D Voltaria, E Analista
+  return rows.map(r => ({
+    data: parseDate(r[0]),
+    nota: parseFloat(String(r[1] || '').replace(',', '.')),  // aceita "7,5" e "7.5"
+    resolvido: parseSimNao(r[2]),
+    voltaria: parseSimNao(r[3]),
+    analista: normalizeName(r[4], 'Sem Analista')
+  })).filter(r => !isNaN(r.nota) && r.nota >= 0 && r.nota <= 10);
+}
+
+async function fetchAvaliacoes() {
+  if (!AVAL_CSV_URL) return;
+  try {
+    const sep = AVAL_CSV_URL.includes('?') ? '&' : '?';
+    const resp = await fetch(AVAL_CSV_URL + sep + 't=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = new TextDecoder('utf-8').decode(await resp.arrayBuffer());
+    avalData = processAvalRows(parseCSV(text));
+  } catch (e) {
+    console.error('Fetch avaliações error:', e);
+  }
+}
+
+// Busca reclamações e avaliações em paralelo e re-renderiza a página aberta.
+async function fetchAllData() {
+  await Promise.all([fetchGoogleSheets(), fetchAvaliacoes()]);
+  refreshViews();
+}
+
+// Mesmo filtro de período global da topbar, aplicado às avaliações.
+function getFilteredAvals() {
+  const p = document.getElementById('filter-periodo')?.value || 'todos';
+  if (p === 'todos') return avalData;
+  const now = new Date();
+  let inicio;
+  if (p === 'mes') inicio = new Date(now.getFullYear(), now.getMonth(), 1);
+  else inicio = new Date(now.getTime() - parseInt(p) * 86400000);
+  return avalData.filter(r => r.data && r.data >= inicio);
+}
+
+// ─── ESTIMATIVA DE REPUTAÇÃO (aproximação da metodologia do Reclame Aqui) ───
+// O RA usa média ponderada de 4 indicadores. Pesos ficam TODOS aqui, num só
+// lugar — o divisor se ajusta sozinho à soma deles.
+//   IN (voltaria a fazer negócio) = 4  → CONFIRMADO
+//   IR, MA, IS                        → estimativa até confirmação
+// Quando tiver os valores oficiais, troque só os números abaixo.
+const AR_PESOS = { ir: 2, ma: 3, is: 3, in: 4 };
+
+function calcIndicadores(avals) {
+  if (!avals.length) return null;
+  const ma = avals.reduce((s, a) => s + a.nota, 0) / avals.length;
+  const is = avals.filter(a => a.resolvido).length / avals.length * 100;
+  const inN = avals.filter(a => a.voltaria).length / avals.length * 100;
+  return { ma, is, in: inN };
+}
+
+function calcReputacao(avals, ir) {
+  const ind = calcIndicadores(avals);
+  if (!ind) return null;
+  const p = AR_PESOS;
+  const somaPesos = p.ir + p.ma + p.is + p.in;
+  // Média ponderada dos indicadores (escala 0-100) e depois ÷10 → nota AR (0-10).
+  // Divisor = somaPesos × 10, então funciona com qualquer conjunto de pesos.
+  const ar = ((ir * p.ir) + (ind.ma * 10 * p.ma) + (ind.is * p.is) + (ind.in * p.in)) / (somaPesos * 10);
+  return { ...ind, ir, ar: Math.max(0, Math.min(10, ar)) };
+}
+
+function classificaReputacao(nota, ir) {
+  if (ir < 50) return { label: 'Não Recomendada', cor: '#9333EA' };  // regra automática do RA
+  if (nota < 5) return { label: 'Não Recomendada', cor: '#9333EA' };
+  if (nota < 6) return { label: 'Ruim', cor: '#EF4444' };
+  if (nota < 7) return { label: 'Regular', cor: '#F59E0B' };
+  if (nota < 8) return { label: 'Bom', cor: '#3B82F6' };
+  return { label: 'Ótimo', cor: '#22C55E' };
+}
+
+// Desenha a carinha do balão em SVG, no estilo do Reclame Aqui.
+// expr: 'feliz' (contente, sobrancelhas erguidas), 'radiante' (sorrisão),
+//       'cansado' (olhos semicerrados, boca reta).
+function faceSVG(cor, expr) {
+  const rosto = `<circle cx="50" cy="50" r="47" fill="${cor}"/>`;
+  let f;
+  if (expr === 'radiante') {
+    // olhos alegres + sorriso largo (cenário otimista, verde)
+    f = `<circle cx="36" cy="45" r="9" fill="#fff"/><circle cx="64" cy="45" r="9" fill="#fff"/>
+         <circle cx="37" cy="46" r="4.5" fill="#16281c"/><circle cx="65" cy="46" r="4.5" fill="#16281c"/>
+         <path d="M31 60 Q50 82 69 60" stroke="#16281c" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+  } else if (expr === 'cansado') {
+    // sobrancelhas caídas + olhos semicerrados + boca reta (pessimista, âmbar)
+    f = `<path d="M27 39 Q36 35 45 40" stroke="#3d2c05" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <path d="M55 40 Q64 35 73 39" stroke="#3d2c05" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <circle cx="37" cy="47" r="4" fill="#3d2c05"/><circle cx="63" cy="47" r="4" fill="#3d2c05"/>
+         <path d="M39 66 L61 66" stroke="#3d2c05" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+  } else {
+    // 'feliz' padrão: sobrancelhas erguidas + olhos grandes + sorriso suave (azul)
+    f = `<path d="M27 31 Q35 26 43 31" stroke="#12203a" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <path d="M57 31 Q65 26 73 31" stroke="#12203a" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <circle cx="36" cy="46" r="10" fill="#fff"/><circle cx="64" cy="46" r="10" fill="#fff"/>
+         <circle cx="38" cy="47" r="4.5" fill="#12203a"/><circle cx="66" cy="47" r="4.5" fill="#12203a"/>
+         <path d="M37 65 Q50 74 63 65" stroke="#12203a" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  }
+  return `<svg viewBox="0 0 100 100">${rosto}${f}</svg>`;
+}
+
+
+// Fronteiras numéricas: 0 | 5 | 6 | 7 | 8 | 10 | (RA1000 é selo, sem faixa numérica)
+function posicaoNaEscala(nota) {
+  const b = [0, 5, 6, 7, 8, 10];
+  const segPct = 100 / 6;
+  for (let i = 0; i < b.length - 1; i++) {
+    if (nota <= b[i + 1]) {
+      return (i + (nota - b[i]) / (b[i + 1] - b[i])) * segPct;
+    }
+  }
+  return 5 * segPct;
+}
+
+// ─── PÁGINA AVALIAÇÃO ───────────────────────────────────────────────────────
+function renderAvaliacaoPage() {
+  const avals = getFilteredAvals();
+  const vazio = !avals.length;
+  document.getElementById('aval-empty').style.display = vazio ? 'block' : 'none';
+  document.getElementById('aval-content').style.display = vazio ? 'none' : 'block';
+  if (vazio) return;
+
+  const ind = calcIndicadores(avals);
+  const total = avals.length;
+
+  // NPS: promotores (9-10) − detratores (0-6), em pontos de -100 a +100
+  const prom = avals.filter(a => a.nota >= 9).length;
+  const detr = avals.filter(a => a.nota <= 6).length;
+  const nps = Math.round((prom - detr) / total * 100);
+
+  document.getElementById('kpi-aval-total').textContent = total;
+  document.getElementById('kpi-aval-nota').textContent = ind.ma.toFixed(1);
+  document.getElementById('kpi-aval-resolvido').textContent = Math.round(ind.is) + '%';
+  document.getElementById('kpi-aval-voltaria').textContent = Math.round(ind.in) + '%';
+  document.getElementById('kpi-aval-nps').textContent = nps;
+  document.getElementById('kpi-aval-nps-delta').textContent =
+    prom + ' promotores · ' + detr + ' detratores';
+
+  // Donut: Problema resolvido
+  destroyChart('aval-resolvido');
+  const simR = avals.filter(a => a.resolvido).length;
+  document.getElementById('legend-aval-resolvido').innerHTML =
+    `<span class="legend-item"><span class="legend-dot" style="background:#00C4A0"></span>Sim ${Math.round(simR/total*100)}%</span>` +
+    `<span class="legend-item"><span class="legend-dot" style="background:#EF4444"></span>Não ${Math.round((total-simR)/total*100)}%</span>`;
+  charts['aval-resolvido'] = new Chart(document.getElementById('chart-aval-resolvido').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: ['Sim', 'Não'], datasets: [{ data: [simR, total - simR], backgroundColor: ['#00C4A0', '#EF4444'], borderWidth: 2, borderColor: '#161B22', hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+  });
+
+  // Donut: Voltaria a fazer negócio
+  destroyChart('aval-voltaria');
+  const simV = avals.filter(a => a.voltaria).length;
+  document.getElementById('legend-aval-voltaria').innerHTML =
+    `<span class="legend-item"><span class="legend-dot" style="background:#A855F7"></span>Sim ${Math.round(simV/total*100)}%</span>` +
+    `<span class="legend-item"><span class="legend-dot" style="background:#4A5568"></span>Não ${Math.round((total-simV)/total*100)}%</span>`;
+  charts['aval-voltaria'] = new Chart(document.getElementById('chart-aval-voltaria').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: ['Sim', 'Não'], datasets: [{ data: [simV, total - simV], backgroundColor: ['#A855F7', '#4A5568'], borderWidth: 2, borderColor: '#161B22', hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+  });
+
+  // Barra: distribuição das notas 0-10
+  destroyChart('aval-notas');
+  const dist = Array.from({ length: 11 }, (_, n) => avals.filter(a => Math.round(a.nota) === n).length);
+  charts['aval-notas'] = new Chart(document.getElementById('chart-aval-notas').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: dist.map((_, n) => String(n)),
+      datasets: [{ data: dist, backgroundColor: dist.map((_, n) => n >= 9 ? '#00C4A0' : n >= 7 ? '#3B82F6' : '#EF4444'), borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Linha: evolução mensal da nota média
+  destroyChart('aval-evolucao');
+  const porMes = {};
+  avals.filter(a => a.data).forEach(a => {
+    const k = a.data.getFullYear() + '-' + String(a.data.getMonth() + 1).padStart(2, '0');
+    (porMes[k] = porMes[k] || []).push(a.nota);
+  });
+  const meses = Object.keys(porMes).sort();
+  charts['aval-evolucao'] = new Chart(document.getElementById('chart-aval-evolucao').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: meses.map(m => m.slice(5) + '/' + m.slice(2, 4)),
+      datasets: [{ label: 'Nota média', data: meses.map(m => +(porMes[m].reduce((s, n) => s + n, 0) / porMes[m].length).toFixed(2)), borderColor: '#00C4A0', backgroundColor: 'rgba(0,196,160,0.08)', borderWidth: 2, tension: 0.4, pointRadius: 4, fill: true }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { min: 0, max: 10, ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      }
+    }
+  });
+}
+
+// ─── PÁGINA PROJEÇÃO ────────────────────────────────────────────────────────
+function onIrChange() {
+  const v = parseFloat(document.getElementById('proj-ir').value);
+  if (!isNaN(v)) {
+    irPercent = Math.max(0, Math.min(100, v));
+    localStorage.setItem('caedu_ir', String(irPercent));
+  }
+  renderProjecaoPage();
+}
+
+function renderProjecaoPage() {
+  const avals = getFilteredAvals();
+  const vazio = !avals.length;
+  document.getElementById('proj-empty').style.display = vazio ? 'block' : 'none';
+  document.getElementById('proj-content').style.display = vazio ? 'none' : 'block';
+  if (vazio) return;
+
+  document.getElementById('proj-ir').value = irPercent;
+
+  const atual = calcReputacao(avals, irPercent);
+
+  // Cenários: simula as próximas N avaliações (10% do volume, mínimo 5)
+  const n = Math.max(5, Math.round(avals.length * 0.1));
+  const boas = Array.from({ length: n }, () => ({ nota: 10, resolvido: true, voltaria: true }));
+  const ruins = Array.from({ length: n }, () => ({ nota: 1, resolvido: false, voltaria: false }));
+  const otimista = calcReputacao(avals.concat(boas), irPercent);
+  const pessimista = calcReputacao(avals.concat(ruins), irPercent);
+
+  const cls = classificaReputacao(atual.ar, irPercent);
+  const deltaOt = otimista.ar - atual.ar;
+  const deltaPe = pessimista.ar - atual.ar;
+
+  // Balões na escala — cada um tem uma carinha (SVG) com expressão própria:
+  // 'feliz' (nota atual), 'radiante' (cenário otimista), 'cansado' (pessimista).
+  const marker = (nota, val, cor, tipo, expr) => `
+    <div class="ra-marker ${tipo}" style="left:${posicaoNaEscala(nota).toFixed(2)}%">
+      <div class="ra-pin">
+        <span class="ra-face">${faceSVG(cor, expr)}</span>
+        <span class="ra-pin-val">${escapeHtml(val)}</span>
+      </div>
+    </div>`;
+
+  document.getElementById('ra-markers').innerHTML =
+    marker(pessimista.ar, deltaPe.toFixed(2), '#F59E0B', 'mini', 'cansado') +
+    marker(atual.ar, atual.ar.toFixed(1), cls.cor, 'main', 'feliz') +
+    marker(otimista.ar, '+' + deltaOt.toFixed(2), '#22C55E', 'mini', 'radiante');
+
+  // Resumo textual
+  const ra1000 = avals.length >= 50 && irPercent >= 90 && atual.is >= 90 && atual.ma >= 7 && atual.in >= 70;
+  const poucas = avals.length < 10;
+  document.getElementById('ra-resumo').innerHTML =
+    `Nota calculada: <b style="color:${cls.cor}">${atual.ar.toFixed(2)} — ${cls.label}</b>` +
+    ` · Cenário otimista: <b style="color:#22C55E">${otimista.ar.toFixed(2)}</b>` +
+    ` · Cenário pessimista: <b style="color:#F59E0B">${pessimista.ar.toFixed(2)}</b>` +
+    ` <span style="color:var(--text-dim)">(simulando as próximas ${n} avaliações)</span>` +
+    (ra1000 ? ` · <b style="color:#EAB308"><i class="ti ti-award"></i> Critérios objetivos do RA 1000 atingidos!</b>` : '') +
+    (poucas ? `<br><span style="color:var(--amber)"><i class="ti ti-alert-triangle"></i> Menos de 10 avaliações no período — o RA classificaria como "Sem Reputação Definida".</span>` : '');
+
+  // Fórmula exibida, montada a partir dos pesos reais (sempre em sincronia)
+  const p = AR_PESOS, somaP = p.ir + p.ma + p.is + p.in;
+  document.getElementById('proj-formula').textContent =
+    `AR ≈ ((IR × ${p.ir}) + (MA × 10 × ${p.ma}) + (IS × ${p.is}) + (IN × ${p.in})) ÷ ${somaP * 10}`;
+
+  // Cards dos 4 indicadores da fórmula — o peso vem de AR_PESOS
+  const cards = [
+    { label: 'Índice de Resposta (IR)', valor: irPercent.toFixed(0) + '%', peso: p.ir, meta: 'RA1000 exige ≥ 90%', ok: irPercent >= 90, cor: 'blue', icone: 'ti-message-circle' },
+    { label: 'Nota Média (MA)', valor: atual.ma.toFixed(1), peso: p.ma, meta: 'RA1000 exige ≥ 7', ok: atual.ma >= 7, cor: 'teal', icone: 'ti-medal' },
+    { label: 'Índice de Solução (IS)', valor: Math.round(atual.is) + '%', peso: p.is, meta: 'RA1000 exige ≥ 90%', ok: atual.is >= 90, cor: 'teal', icone: 'ti-circle-check' },
+    { label: 'Novos Negócios (IN)', valor: Math.round(atual.in) + '%', peso: p.in, meta: 'RA1000 exige ≥ 70%', ok: atual.in >= 70, cor: 'purple', icone: 'ti-repeat' }
+  ];
+  document.getElementById('proj-indicadores').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.cor}">
+      <div class="kpi-label">${c.label} · peso ${c.peso}</div>
+      <div class="kpi-value ${c.cor}">${c.valor}</div>
+      <div class="kpi-delta" style="color:${c.ok ? 'var(--teal)' : 'var(--amber)'}">
+        ${c.ok ? '✓' : '•'} ${c.meta}
+      </div>
+      <i class="ti ${c.icone} kpi-icon"></i>
+    </div>`).join('');
+}
+
 // ─── BANNER DE ERRO ─────────────────────────────────────────────────────────
 // Visível em qualquer página quando a atualização falha — importante agora
 // que os detalhes de conexão ficam atrás da senha das Configurações.
@@ -1505,7 +2090,7 @@ function hideErrorBanner() {
   document.getElementById('error-banner').classList.remove('show');
 }
 
-function refreshData() { fetchGoogleSheets(); }
+function refreshData() { fetchAllData(); }
 
 function updateSyncTime() {
   const now = new Date();
@@ -1519,11 +2104,13 @@ function saveConfig() {
     CSV_URL = url;
     localStorage.setItem('caedu_csv_url', url);
   }
+  AVAL_CSV_URL = document.getElementById('cfg-aval-url').value.trim();
+  localStorage.setItem('caedu_aval_url', AVAL_CSV_URL);
   config.interval = parseInt(document.getElementById('cfg-interval').value);
   localStorage.setItem('caedu_interval', String(config.interval));
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(fetchGoogleSheets, config.interval);
-  fetchGoogleSheets();
+  refreshTimer = setInterval(fetchAllData, config.interval);
+  fetchAllData();
   const s = document.getElementById('cfg-status');
   s.className = 'config-status ok';
   document.getElementById('cfg-status-text').textContent = 'Configuração salva. Buscando dados...';
@@ -1557,8 +2144,8 @@ async function testConnection() {
 // ─── INIT ───────────────────────────────────────────────────────────────────
 config.interval = parseInt(localStorage.getItem('caedu_interval')) || config.interval;
 applyConfigLockState();
-fetchGoogleSheets();
-refreshTimer = setInterval(fetchGoogleSheets, config.interval);
+fetchAllData();
+refreshTimer = setInterval(fetchAllData, config.interval);
 </script>
 </body>
 </html>
