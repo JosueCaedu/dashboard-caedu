@@ -942,10 +942,14 @@
               <div class="chart-title">Escala de Reputação — Reclame Aqui</div>
               <div class="chart-sub">Nota calculada com seus dados de avaliação + cenários otimista e pessimista</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span class="filter-label">Índice de Resposta (IR):</span>
-              <input class="form-input" id="proj-ir" type="number" min="0" max="100" step="1"
-                     style="width:80px;padding:6px 10px" onchange="onIrChange()" /> <span class="filter-label">%</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="filter-label">IR:</span>
+              <input class="form-input" id="proj-ir" type="number" min="0" max="100" step="0.1"
+                     style="width:72px;padding:6px 10px" onchange="onIrChange()" /> <span class="filter-label">%</span>
+              <span class="filter-label" style="margin-left:8px">IS:</span>
+              <input class="form-input" id="proj-is" type="number" min="0" max="100" step="1"
+                     placeholder="auto" title="Deixe vazio para calcular pela planilha, ou digite o valor oficial do RA para travar"
+                     style="width:72px;padding:6px 10px" onchange="onIsChange()" /> <span class="filter-label">%</span>
             </div>
           </div>
 
@@ -977,19 +981,19 @@
           <div class="chart-header">
             <div>
               <div class="chart-title">Como a nota é estimada</div>
-              <div class="chart-sub">Baseado na metodologia pública do Reclame Aqui — pesos aproximados</div>
+              <div class="chart-sub">Fórmula oficial do Reclame Aqui (a "AR")</div>
             </div>
           </div>
           <div style="font-size:13px;color:var(--text-muted);line-height:1.7">
             <div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;color:var(--amber);font-size:12px">
-              <i class="ti ti-info-circle"></i> Esta é uma <b>estimativa própria</b>, não a nota oficial. O RA usa estes quatro indicadores numa média ponderada, mas os pesos exatos da fórmula não são divulgados publicamente. Os valores abaixo são uma aproximação — use como tendência, não como número exato.
+              <i class="ti ti-info-circle"></i> Esta é a <b>fórmula oficial do RA</b>, com os pesos corretos. Ainda assim, trate o número como <b>estimativa</b>: ele depende dos dados que entram aqui — em especial o Índice de Resposta (IR), que é preenchido manualmente — e o RA calcula sobre uma janela específica dos últimos 6 meses. Serve para acompanhar a tendência; o valor oficial é sempre o do painel do próprio RA.
             </div>
             <code id="proj-formula" style="background:var(--surface2);padding:8px 14px;border-radius:8px;display:inline-block;color:var(--teal);font-size:13px"></code>
             <p style="margin-top:12px">
-              <b>IR</b> — Índice de Resposta (% de reclamações respondidas). Não vem da planilha de avaliações; ajuste o valor no campo acima conforme o painel do RA.<br>
-              <b>MA</b> — Média das Avaliações (nota do consumidor de 0 a 10).<br>
-              <b>IS</b> — Índice de Solução (% que respondeu "Sim" para problema resolvido).<br>
-              <b>IN</b> — Índice de Novos Negócios (% que voltaria a fazer negócio).
+              <b>IR</b> — Índice de Resposta (% de reclamações respondidas). Não vem da planilha; digite o valor do painel do RA no campo IR acima.<br>
+              <b>MA</b> — Média das Avaliações (nota do consumidor de 0 a 10), calculada da planilha.<br>
+              <b>IS</b> — Índice de Solução (% que respondeu "Sim" para problema resolvido). Por padrão vem da planilha, mas você pode travá-lo no valor oficial do RA usando o campo IS acima (deixe vazio para voltar ao automático).<br>
+              <b>IN</b> — Índice de Novos Negócios (% que voltaria a fazer negócio), calculado da planilha.
             </p>
             <p style="margin-top:8px;color:var(--text-dim)">
               Cenários: o <b style="color:#22C55E">otimista</b> simula as próximas avaliações todas positivas (nota 10, resolvido, voltaria) e o <b style="color:#F59E0B">pessimista</b> todas negativas (nota 1, não resolvido, não voltaria) — a quantidade simulada equivale a 10% do volume atual (mínimo 5). Regras do RA: menos de 10 avaliações = sem reputação definida; IR abaixo de 50% = Não Recomendada automaticamente. Selo RA 1000 exige 50+ avaliações, IR ≥ 90%, IS ≥ 90%, MA ≥ 7 e IN ≥ 70%.
@@ -1162,6 +1166,8 @@ let appData = [];
 let avalData = [];  // avaliações dos clientes (aba Avaliacoes do Sheets)
 let AVAL_CSV_URL = localStorage.getItem('caedu_aval_url') || '';
 let irPercent = parseFloat(localStorage.getItem('caedu_ir')) || 100;  // Índice de Resposta
+// Índice de Solução manual (opcional). null = calcular a partir das avaliações.
+let isOverride = localStorage.getItem('caedu_is') !== null ? parseFloat(localStorage.getItem('caedu_is')) : null;
 let charts = {};
 let refreshTimer = null;
 let config = {
@@ -1837,13 +1843,15 @@ function getFilteredAvals() {
   return avalData.filter(r => r.data && r.data >= inicio);
 }
 
-// ─── ESTIMATIVA DE REPUTAÇÃO (aproximação da metodologia do Reclame Aqui) ───
-// O RA usa média ponderada de 4 indicadores. Pesos ficam TODOS aqui, num só
-// lugar — o divisor se ajusta sozinho à soma deles.
-//   IN (voltaria a fazer negócio) = 4  → CONFIRMADO
-//   IR, MA, IS                        → estimativa até confirmação
-// Quando tiver os valores oficiais, troque só os números abaixo.
-const AR_PESOS = { ir: 2, ma: 3, is: 3, in: 4 };
+// ─── CÁLCULO DE REPUTAÇÃO (fórmula oficial do Reclame Aqui — a "AR") ─────────
+// Pesos OFICIAIS confirmados na documentação do RA:
+//   IR (reclamações respondidas) = 2
+//   IN (voltaria a fazer negócio) = 2
+//   IS (índice de solução)        = 3
+//   MA (nota do consumidor)       = 3   → a MA é multiplicada por 10 na fórmula
+// Todos ficam num só lugar; o divisor se ajusta à soma deles (aqui, 10 × 10 = 100).
+// AR = ((IR × 2) + (MA × 10 × 3) + (IS × 3) + (IN × 2)) / 100
+const AR_PESOS = { ir: 2, ma: 3, is: 3, in: 2 };
 
 function calcIndicadores(avals) {
   if (!avals.length) return null;
@@ -1853,9 +1861,12 @@ function calcIndicadores(avals) {
   return { ma, is, in: inN };
 }
 
-function calcReputacao(avals, ir) {
+function calcReputacao(avals, ir, isOvr) {
   const ind = calcIndicadores(avals);
   if (!ind) return null;
+  // Se houver um IS manual "travado" (valor oficial do RA), ele substitui o
+  // IS calculado das avaliações. Caso contrário, usa o das avaliações.
+  if (isOvr !== null && isOvr !== undefined && !isNaN(isOvr)) ind.is = isOvr;
   const p = AR_PESOS;
   const somaPesos = p.ir + p.ma + p.is + p.in;
   // Média ponderada dos indicadores (escala 0-100) e depois ÷10 → nota AR (0-10).
@@ -2016,6 +2027,21 @@ function onIrChange() {
   renderProjecaoPage();
 }
 
+function onIsChange() {
+  const raw = document.getElementById('proj-is').value.trim();
+  if (raw === '') {                       // vazio = volta a calcular pela planilha
+    isOverride = null;
+    localStorage.removeItem('caedu_is');
+  } else {
+    const v = parseFloat(raw);
+    if (!isNaN(v)) {
+      isOverride = Math.max(0, Math.min(100, v));
+      localStorage.setItem('caedu_is', String(isOverride));
+    }
+  }
+  renderProjecaoPage();
+}
+
 function renderProjecaoPage() {
   const avals = getFilteredAvals();
   const vazio = !avals.length;
@@ -2024,15 +2050,16 @@ function renderProjecaoPage() {
   if (vazio) return;
 
   document.getElementById('proj-ir').value = irPercent;
+  document.getElementById('proj-is').value = isOverride !== null ? isOverride : '';
 
-  const atual = calcReputacao(avals, irPercent);
+  const atual = calcReputacao(avals, irPercent, isOverride);
 
   // Cenários: simula as próximas N avaliações (10% do volume, mínimo 5)
   const n = Math.max(5, Math.round(avals.length * 0.1));
   const boas = Array.from({ length: n }, () => ({ nota: 10, resolvido: true, voltaria: true }));
   const ruins = Array.from({ length: n }, () => ({ nota: 1, resolvido: false, voltaria: false }));
-  const otimista = calcReputacao(avals.concat(boas), irPercent);
-  const pessimista = calcReputacao(avals.concat(ruins), irPercent);
+  const otimista = calcReputacao(avals.concat(boas), irPercent, isOverride);
+  const pessimista = calcReputacao(avals.concat(ruins), irPercent, isOverride);
 
   const cls = classificaReputacao(atual.ar, irPercent);
   const deltaOt = otimista.ar - atual.ar;
@@ -2071,14 +2098,14 @@ function renderProjecaoPage() {
 
   // Cards dos 4 indicadores da fórmula — o peso vem de AR_PESOS
   const cards = [
-    { label: 'Índice de Resposta (IR)', valor: irPercent.toFixed(0) + '%', peso: p.ir, meta: 'RA1000 exige ≥ 90%', ok: irPercent >= 90, cor: 'blue', icone: 'ti-message-circle' },
-    { label: 'Nota Média (MA)', valor: atual.ma.toFixed(1), peso: p.ma, meta: 'RA1000 exige ≥ 7', ok: atual.ma >= 7, cor: 'teal', icone: 'ti-medal' },
-    { label: 'Índice de Solução (IS)', valor: Math.round(atual.is) + '%', peso: p.is, meta: 'RA1000 exige ≥ 90%', ok: atual.is >= 90, cor: 'teal', icone: 'ti-circle-check' },
-    { label: 'Novos Negócios (IN)', valor: Math.round(atual.in) + '%', peso: p.in, meta: 'RA1000 exige ≥ 70%', ok: atual.in >= 70, cor: 'purple', icone: 'ti-repeat' }
+    { label: 'Índice de Resposta (IR)', valor: (Number.isInteger(irPercent) ? irPercent : irPercent.toFixed(1)) + '%', tag: 'manual', peso: p.ir, meta: 'RA1000 exige ≥ 90%', ok: irPercent >= 90, cor: 'blue', icone: 'ti-message-circle' },
+    { label: 'Nota Média (MA)', valor: atual.ma.toFixed(1), tag: 'da planilha', peso: p.ma, meta: 'RA1000 exige ≥ 7', ok: atual.ma >= 7, cor: 'teal', icone: 'ti-medal' },
+    { label: 'Índice de Solução (IS)', valor: Math.round(atual.is) + '%', tag: isOverride !== null ? 'oficial (travado)' : 'da planilha', peso: p.is, meta: 'RA1000 exige ≥ 90%', ok: atual.is >= 90, cor: 'teal', icone: 'ti-circle-check' },
+    { label: 'Novos Negócios (IN)', valor: Math.round(atual.in) + '%', tag: 'da planilha', peso: p.in, meta: 'RA1000 exige ≥ 70%', ok: atual.in >= 70, cor: 'purple', icone: 'ti-repeat' }
   ];
   document.getElementById('proj-indicadores').innerHTML = cards.map(c => `
     <div class="kpi-card ${c.cor}">
-      <div class="kpi-label">${c.label} · peso ${c.peso}</div>
+      <div class="kpi-label">${c.label} · peso ${c.peso} · <span style="opacity:0.7">${c.tag}</span></div>
       <div class="kpi-value ${c.cor}">${c.valor}</div>
       <div class="kpi-delta" style="color:${c.ok ? 'var(--teal)' : 'var(--amber)'}">
         ${c.ok ? '✓' : '•'} ${c.meta}
